@@ -5,8 +5,13 @@ export interface Point {
 
 export interface Connector {
   id: string
-  side: 'input' | 'output'
+  side: 'input' | 'output' | 'dep'
   d: string
+}
+
+/** Distribute N anchor points across a horizontal edge of width `width`. */
+export function distributeX(left: number, width: number, count: number, index: number): number {
+  return left + (width * (index + 1)) / (count + 1)
 }
 
 /**
@@ -21,6 +26,15 @@ export function bezierPath(start: Point, end: Point, curviness = 0.45): string {
 
 function round(n: number): number {
   return Math.round(n * 100) / 100
+}
+
+/**
+ * A dep connector: a vertical S-curve from a dep card's top up to the spine's
+ * bottom edge, with vertical tangents at both ends (SPEC §9.2, design geometry).
+ */
+export function depCurve(depCx: number, depTop: number, sx: number, spineBottom: number): string {
+  const k = Math.max(24, Math.abs(depTop - spineBottom) * 0.5)
+  return `M ${round(depCx)} ${round(depTop)} C ${round(depCx)} ${round(depTop - k)}, ${round(sx)} ${round(spineBottom + k)}, ${round(sx)} ${round(spineBottom)}`
 }
 
 /** Evenly distribute N anchor points across a vertical edge of height `height`. */
