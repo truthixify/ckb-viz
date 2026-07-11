@@ -175,12 +175,134 @@
   .connector {
     stroke-dasharray: 1;
     stroke-dashoffset: 1;
-    animation: connector-draw 0.85s var(--ease-instrument) forwards;
+    animation: connector-draw 0.6s var(--ease-instrument) forwards;
   }
 
   @keyframes connector-draw {
     to {
       stroke-dashoffset: 0;
+    }
+  }
+
+  /* Entrance choreography — cells and the spine cascade in on load. */
+  .vz-enter {
+    animation: vz-fade-up 0.5s var(--ease-instrument) both;
+  }
+  .vz-enter-l {
+    animation: vz-slide-l 0.5s var(--ease-instrument) both;
+  }
+  .vz-enter-r {
+    animation: vz-slide-r 0.5s var(--ease-instrument) both;
+  }
+  .vz-enter-scale {
+    animation: vz-scale 0.55s var(--ease-instrument) both;
+  }
+
+  @keyframes vz-fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+  }
+  @keyframes vz-slide-l {
+    from {
+      opacity: 0;
+      transform: translateX(-18px);
+    }
+  }
+  @keyframes vz-slide-r {
+    from {
+      opacity: 0;
+      transform: translateX(18px);
+    }
+  }
+  @keyframes vz-scale {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+  }
+
+  /* The traveling flow. One rhythm per cycle: capacity first converges from the
+     inputs (and deps) INTO the spine, the spine fires, then it diverges OUT to
+     the outputs — never both at once. Inputs travel in the first half of the
+     cycle, outputs in the second, with a beat between for the spine. */
+  .flow-pulse {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    offset-anchor: 50% 50%;
+    animation-duration: 2.6s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  }
+  .flow-pulse-in {
+    animation-name: flow-in;
+  }
+  .flow-pulse-out {
+    animation-name: flow-out;
+  }
+
+  @keyframes flow-in {
+    0% {
+      offset-distance: 0%;
+      opacity: 0;
+    }
+    4% {
+      opacity: 0.95;
+    }
+    32% {
+      offset-distance: 100%;
+      opacity: 0.95;
+    }
+    38%,
+    100% {
+      offset-distance: 100%;
+      opacity: 0;
+    }
+  }
+
+  @keyframes flow-out {
+    0%,
+    46% {
+      offset-distance: 0%;
+      opacity: 0;
+    }
+    50% {
+      offset-distance: 0%;
+      opacity: 0.95;
+    }
+    84% {
+      offset-distance: 100%;
+      opacity: 0.95;
+    }
+    89%,
+    100% {
+      offset-distance: 100%;
+      opacity: 0;
+    }
+  }
+
+  /* The spine fires as value passes through — a brief ember border flash at the
+     handoff between inputs converging and outputs diverging. */
+  .spine-beat {
+    animation: spine-beat 2.6s ease-in-out infinite;
+  }
+
+  @keyframes spine-beat {
+    0%,
+    36% {
+      opacity: 0;
+    }
+    44% {
+      opacity: 0.7;
+    }
+    52%,
+    100% {
+      opacity: 0;
     }
   }
 }

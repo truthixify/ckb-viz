@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { ckb, formatCkb, splitCkb, truncateHash, formatOutPoint, isValidTxHash } from './units'
+import {
+  ckb,
+  formatCkb,
+  splitCkb,
+  truncateHash,
+  formatOutPoint,
+  isValidTxHash,
+  formatRelativeTime,
+} from './units'
 
 describe('ckb / shannon conversion', () => {
   it('parses whole and fractional CKB exactly', () => {
@@ -34,5 +42,16 @@ describe('hash helpers', () => {
     expect(isValidTxHash('0x' + 'a'.repeat(64))).toBe(true)
     expect(isValidTxHash('0x' + 'a'.repeat(63))).toBe(false)
     expect(isValidTxHash('deadbeef')).toBe(false)
+  })
+})
+
+describe('relative time', () => {
+  const now = Date.parse('2026-07-11T12:00:00Z')
+  it('formats ages as "X ago"', () => {
+    expect(formatRelativeTime(now - 10_000, now)).toBe('just now')
+    expect(formatRelativeTime(now - 60_000, now)).toBe('1 min ago')
+    expect(formatRelativeTime(now - 5 * 60_000, now)).toBe('5 mins ago')
+    expect(formatRelativeTime(now - 3 * 3_600_000, now)).toBe('3 hours ago')
+    expect(formatRelativeTime(now - 2 * 86_400_000, now)).toBe('2 days ago')
   })
 })

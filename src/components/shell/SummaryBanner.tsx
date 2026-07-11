@@ -1,6 +1,8 @@
+import { useNow } from '@/app/motion'
 import type { CapacityBreakdown, Transaction } from '@/domain/types'
-import { formatBytes, formatCkb, formatInt, formatTimestamp } from '@/domain/units'
+import { formatBytes, formatInt, formatRelativeTime, formatTimestamp } from '@/domain/units'
 import type { DecodeResult } from '@/decode/decoder'
+import { CountingCkb } from '../common/CountingCkb'
 import { StatusDot } from '../common/StatusDot'
 
 /**
@@ -17,8 +19,9 @@ export function SummaryBanner({
   capacity: CapacityBreakdown
   summary: DecodeResult
 }) {
+  const now = useNow(30_000)
   return (
-    <section className="flex flex-col gap-6 border border-hairline bg-panel px-7 py-6">
+    <section className="vz-enter flex flex-col gap-6 border border-hairline bg-panel px-7 py-6">
       <div className="flex flex-col gap-3">
         <span className="flex items-center gap-2.5">
           <span className="meta-label">Transaction summary</span>
@@ -36,7 +39,7 @@ export function SummaryBanner({
       <dl className="flex flex-wrap gap-x-12 gap-y-5">
         <Reading label="Fee">
           <span className="text-ember">
-            {capacity.fee === undefined ? '—' : `${formatCkb(capacity.fee)} CKB`}
+            {capacity.fee === undefined ? '—' : <><CountingCkb value={capacity.fee} duration={850} /> CKB</>}
           </span>
         </Reading>
         <Reading label="Size">{formatBytes(transaction.size)}</Reading>
@@ -49,7 +52,13 @@ export function SummaryBanner({
           {transaction.blockNumber === undefined ? '—' : formatInt(transaction.blockNumber)}
         </Reading>
         <Reading label="Time">
-          {transaction.timestamp === undefined ? '—' : formatTimestamp(transaction.timestamp)}
+          {transaction.timestamp === undefined ? (
+            '—'
+          ) : (
+            <span title={formatTimestamp(transaction.timestamp)}>
+              {formatRelativeTime(transaction.timestamp, now)}
+            </span>
+          )}
         </Reading>
         <Reading label="Status">
           <StatusDot status={transaction.status} />

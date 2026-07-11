@@ -1,5 +1,6 @@
 import type { CapacityBreakdown, Transaction } from '@/domain/types'
-import { formatCkb, truncateHash } from '@/domain/units'
+import { truncateHash } from '@/domain/units'
+import { CountingCkb } from '../common/CountingCkb'
 import { StatusDot } from '../common/StatusDot'
 
 /**
@@ -41,7 +42,7 @@ export function TransactionSpine({
       <dl className="flex flex-col gap-3">
         <Row label="Fee">
           <span className="mono text-[13px] text-[color:var(--color-ember)]">
-            {capacity.fee === undefined ? '—' : `${formatCkb(capacity.fee)} CKB`}
+            {capacity.fee === undefined ? '—' : <><CountingCkb value={capacity.fee} duration={850} delay={300} /> CKB</>}
           </span>
         </Row>
         <Row label="In / Out">

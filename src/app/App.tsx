@@ -140,11 +140,13 @@ export function App() {
             <>
               <Breadcrumb path={path} onNavigate={(i) => { setPath((p) => p.slice(0, i + 1)); setSelectedId(null) }} />
               <SummaryBanner
+                key={`banner-${currentHash}`}
                 transaction={enriched.transaction}
                 capacity={enriched.capacity}
                 summary={enriched.summary}
               />
               <FlowCanvas
+                key={`flow-${currentHash}`}
                 transaction={enriched.transaction}
                 capacity={enriched.capacity}
                 selectedId={selectedId}

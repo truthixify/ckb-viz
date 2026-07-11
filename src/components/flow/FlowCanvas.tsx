@@ -1,12 +1,27 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { usePrefersReducedMotion } from '@/app/motion'
 import type { CapacityBreakdown, Cell, Transaction } from '@/domain/types'
-import { formatCkb, formatInt } from '@/domain/units'
+import { formatInt } from '@/domain/units'
+import { CountingCkb } from '../common/CountingCkb'
 import { CellCard } from './CellCard'
 import { CellDepsLane } from './CellDepsLane'
 import { GroupedCell } from './GroupedCell'
 import { TransactionSpine } from './TransactionSpine'
 import { bezierPath, depCurve, distributeX, distributeY, type Connector } from './connectors'
 import { cellId, depId, type CellSide } from './types'
+
+/* ─────────────────────────────────────────────────────────
+ * FLOW STORYBOARD (from mount; replays per transaction)
+ *
+ *    0ms   spine scales in · inputs slide from the left ·
+ *          outputs slide from the right (staggered) · totals count up
+ *  780ms   connectors draw in — inputs→spine, spine→outputs, deps→spine
+ * 1250ms   flow pulses begin: capacity travels into the spine, then out to
+ *          the outputs; deps feed in. Loops as a steady, living flow.
+ * ───────────────────────────────────────────────────────── */
+const STAGE_CONNECTORS = 780
+const STAGE_PULSES = 1250
+const CELL_STAGGER = 70
 
 const GROUP_THRESHOLD = 4
 const GROUP_KEEP = 3
@@ -18,7 +33,6 @@ interface Row {
   grouped?: { count: number; sum: bigint }
 }
 
-/** Split a side's cells into visible rows, collapsing crowded sides. */
 function toRows(cells: Cell[], side: CellSide, expanded: boolean): Row[] {
   if (expanded || cells.length <= GROUP_THRESHOLD) {
     return cells.map((cell, index) => ({ id: cellId(side, index), cell, index }))
@@ -42,6 +56,7 @@ export function FlowCanvas({
   onSelectCell: (cell: Cell, id: string) => void
   onCopy: (text: string) => void
 }) {
+  const reduced = usePrefersReducedMotion()
   const containerRef = useRef<HTMLDivElement>(null)
   const spineRef = useRef<HTMLElement | null>(null)
   const cellRefs = useRef<Map<string, HTMLElement>>(new Map())
@@ -52,15 +67,28 @@ export function FlowCanvas({
   const [depsOpen, setDepsOpen] = useState(true)
   const [connectors, setConnectors] = useState<Connector[]>([])
   const [size, setSize] = useState({ w: 0, h: 0 })
+  const [stage, setStage] = useState(reduced ? 2 : 0)
 
   const inputCells = transaction.inputs.map((i) => i.cell ?? unresolvedCell())
   const inputRows = toRows(inputCells, 'input', inputsExpanded)
   const outputRows = toRows(transaction.outputs, 'output', outputsExpanded)
   const deps = transaction.cellDeps
 
-  // Latest layout inputs for the stable measure() to read, without deps.
   const stateRef = useRef({ inputRows, outputRows, depCount: deps.length, depsOpen })
   stateRef.current = { inputRows, outputRows, depCount: deps.length, depsOpen }
+
+  useEffect(() => {
+    if (reduced) {
+      setStage(2)
+      return
+    }
+    const t1 = setTimeout(() => setStage(1), STAGE_CONNECTORS)
+    const t2 = setTimeout(() => setStage(2), STAGE_PULSES)
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
+    }
+  }, [reduced])
 
   const registerCellRef = useCallback((id: string, el: HTMLElement | null) => {
     if (el) cellRefs.current.set(id, el)
@@ -113,7 +141,7 @@ export function FlowCanvas({
 
   useLayoutEffect(() => {
     measure()
-  }, [measure, inputsExpanded, outputsExpanded, depsOpen, transaction])
+  }, [measure, inputsExpanded, outputsExpanded, depsOpen, transaction, stage])
 
   useLayoutEffect(() => {
     const ro = new ResizeObserver(() => measure())
@@ -125,6 +153,8 @@ export function FlowCanvas({
       window.removeEventListener('resize', measure)
     }
   }, [measure])
+
+  const cellDelay = (i: number) => `${80 + i * CELL_STAGGER}ms`
 
   return (
     <div className="flex flex-col gap-8">
@@ -141,7 +171,7 @@ export function FlowCanvas({
       </div>
 
       <div ref={containerRef} className="relative">
-        {/* Connector overlay, behind the cell layer. */}
+        {/* Connector overlay, behind the cell layer, drawn in at stage 1. */}
         <svg
           className="pointer-events-none absolute inset-0 overflow-visible"
           width={size.w}
@@ -150,7 +180,7 @@ export function FlowCanvas({
           aria-hidden
           style={{ zIndex: 1 }}
         >
-          {connectors.map((conn) => {
+          {(stage >= 1 ? connectors : []).map((conn) => {
             const isActive = activeId === conn.id
             const dimmed = activeId !== null && !isActive
             if (conn.side === 'dep') {
@@ -158,6 +188,7 @@ export function FlowCanvas({
                 <path
                   key={conn.id}
                   d={conn.d}
+                  className={reduced ? undefined : 'connector'}
                   stroke="var(--color-dep)"
                   strokeWidth={isActive ? 2 : 1.4}
                   strokeDasharray="2 5"
@@ -174,7 +205,7 @@ export function FlowCanvas({
                 key={conn.id}
                 d={conn.d}
                 pathLength={1}
-                className="connector"
+                className={reduced ? undefined : 'connector'}
                 stroke="var(--color-ember)"
                 strokeWidth={isActive ? 2.4 : 1.8}
                 strokeLinecap="round"
@@ -187,39 +218,72 @@ export function FlowCanvas({
           })}
         </svg>
 
+        {/* Traveling flow pulses: inputs converge into the spine, then the spine
+            fires and outputs diverge — sequenced, not simultaneous. */}
+        {stage >= 2 && !reduced && (
+          <div className="pointer-events-none absolute inset-0 overflow-visible" style={{ zIndex: 1 }}>
+            {connectors.map((conn) => {
+              const isActive = activeId === conn.id
+              const dimmed = activeId !== null && !isActive
+              return (
+                <span
+                  key={`pulse-${conn.id}`}
+                  className="absolute inset-0"
+                  style={{ opacity: dimmed ? 0.12 : isActive ? 1 : 0.8 }}
+                >
+                  <span
+                    className={`flow-pulse ${conn.side === 'output' ? 'flow-pulse-out' : 'flow-pulse-in'}`}
+                    style={{
+                      offsetPath: `path("${conn.d}")`,
+                      backgroundColor: conn.side === 'dep' ? 'var(--color-dep)' : 'var(--color-ember)',
+                    }}
+                  />
+                </span>
+              )
+            })}
+          </div>
+        )}
+
         <div className="relative z-[2] grid grid-cols-[1fr_auto_1fr] items-center gap-8">
           <Column align="start">
-            {inputRows.map((row) =>
-              row.grouped ? (
-                <GroupedCell
-                  key={row.id}
-                  side="input"
-                  count={row.grouped.count}
-                  sumCapacity={row.grouped.sum}
-                  id={row.id}
-                  active={activeId === row.id}
-                  onActivate={setActiveId}
-                  onExpand={() => setInputsExpanded(true)}
-                  registerRef={registerCellRef}
-                />
-              ) : (
-                <CellCard
-                  key={row.id}
-                  cell={row.cell!}
-                  side="input"
-                  id={row.id}
-                  active={activeId === row.id}
-                  selected={selectedId === row.id}
-                  onActivate={setActiveId}
-                  onSelect={onSelectCell}
-                  registerRef={registerCellRef}
-                  onCopy={onCopy}
-                />
-              ),
-            )}
+            {inputRows.map((row, i) => (
+              <div key={row.id} className="vz-enter-l" style={{ animationDelay: cellDelay(i) }}>
+                {row.grouped ? (
+                  <GroupedCell
+                    side="input"
+                    count={row.grouped.count}
+                    sumCapacity={row.grouped.sum}
+                    id={row.id}
+                    active={activeId === row.id}
+                    onActivate={setActiveId}
+                    onExpand={() => setInputsExpanded(true)}
+                    registerRef={registerCellRef}
+                  />
+                ) : (
+                  <CellCard
+                    cell={row.cell!}
+                    side="input"
+                    id={row.id}
+                    active={activeId === row.id}
+                    selected={selectedId === row.id}
+                    onActivate={setActiveId}
+                    onSelect={onSelectCell}
+                    registerRef={registerCellRef}
+                    onCopy={onCopy}
+                  />
+                )}
+              </div>
+            ))}
           </Column>
 
-          <div className="w-[300px] max-w-[34vw] justify-self-center">
+          <div className="vz-enter-scale relative w-[300px] max-w-[34vw] justify-self-center">
+            {stage >= 2 && !reduced && (
+              <span
+                aria-hidden
+                className="spine-beat pointer-events-none absolute inset-0"
+                style={{ border: '1px solid var(--color-ember-bright)' }}
+              />
+            )}
             <TransactionSpine
               transaction={transaction}
               capacity={capacity}
@@ -229,39 +293,39 @@ export function FlowCanvas({
           </div>
 
           <Column align="end">
-            {outputRows.map((row) =>
-              row.grouped ? (
-                <GroupedCell
-                  key={row.id}
-                  side="output"
-                  count={row.grouped.count}
-                  sumCapacity={row.grouped.sum}
-                  id={row.id}
-                  active={activeId === row.id}
-                  onActivate={setActiveId}
-                  onExpand={() => setOutputsExpanded(true)}
-                  registerRef={registerCellRef}
-                />
-              ) : (
-                <CellCard
-                  key={row.id}
-                  cell={row.cell!}
-                  side="output"
-                  index={row.index}
-                  id={row.id}
-                  active={activeId === row.id}
-                  selected={selectedId === row.id}
-                  onActivate={setActiveId}
-                  onSelect={onSelectCell}
-                  registerRef={registerCellRef}
-                  onCopy={onCopy}
-                />
-              ),
-            )}
+            {outputRows.map((row, i) => (
+              <div key={row.id} className="vz-enter-r" style={{ animationDelay: cellDelay(i) }}>
+                {row.grouped ? (
+                  <GroupedCell
+                    side="output"
+                    count={row.grouped.count}
+                    sumCapacity={row.grouped.sum}
+                    id={row.id}
+                    active={activeId === row.id}
+                    onActivate={setActiveId}
+                    onExpand={() => setOutputsExpanded(true)}
+                    registerRef={registerCellRef}
+                  />
+                ) : (
+                  <CellCard
+                    cell={row.cell!}
+                    side="output"
+                    index={row.index}
+                    id={row.id}
+                    active={activeId === row.id}
+                    selected={selectedId === row.id}
+                    onActivate={setActiveId}
+                    onSelect={onSelectCell}
+                    registerRef={registerCellRef}
+                    onCopy={onCopy}
+                  />
+                )}
+              </div>
+            ))}
           </Column>
         </div>
 
-        <div className="relative z-[2] mt-9">
+        <div className="vz-enter relative z-[2] mt-9" style={{ animationDelay: '240ms' }}>
           <CellDepsLane
             cellDeps={deps}
             open={depsOpen}
@@ -273,7 +337,10 @@ export function FlowCanvas({
           />
         </div>
 
-        <div className="relative z-[2] mt-10 grid grid-cols-[1fr_auto_1fr] items-start gap-8 border-t border-hairline pt-5">
+        <div
+          className="vz-enter relative z-[2] mt-10 grid grid-cols-[1fr_auto_1fr] items-start gap-8 border-t border-hairline pt-5"
+          style={{ animationDelay: '300ms' }}
+        >
           <CapacityTotal label="Σ Input capacity" value={capacity.inputsTotal} tint="var(--color-flow-in)" align="start" />
           <FeeTotal fee={capacity.fee} />
           <CapacityTotal label="Σ Output capacity" value={capacity.outputsTotal} tint="var(--color-flow-out)" align="end" />
@@ -285,9 +352,7 @@ export function FlowCanvas({
 
 function Column({ align, children }: { align: 'start' | 'end'; children: React.ReactNode }) {
   return (
-    <div className={`flex flex-col gap-5 ${align === 'end' ? 'items-end' : 'items-start'}`}>
-      {children}
-    </div>
+    <div className={`flex flex-col gap-5 ${align === 'end' ? 'items-end' : 'items-start'}`}>{children}</div>
   )
 }
 
@@ -307,7 +372,7 @@ function CapacityTotal({
       <span className="mono text-[10px] font-medium uppercase tracking-[0.16em] text-muted">{label}</span>
       <span className="flex items-baseline gap-1.5">
         <span className="mono text-[22px] font-medium tracking-tight" style={{ color: tint }}>
-          {value === undefined ? '—' : formatCkb(value)}
+          {value === undefined ? '—' : <CountingCkb value={value} duration={850} delay={300} />}
         </span>
         <span className="mono text-[11px] text-muted">CKB</span>
       </span>
@@ -321,7 +386,7 @@ function FeeTotal({ fee }: { fee: bigint | undefined }) {
       <span className="mono text-[10px] font-medium uppercase tracking-[0.16em] text-muted">Fee = In − Out</span>
       <span className="flex items-baseline justify-center gap-1.5">
         <span className="mono text-[22px] font-medium tracking-tight text-ember">
-          {fee === undefined ? '—' : formatCkb(fee)}
+          {fee === undefined ? '—' : <CountingCkb value={fee} duration={850} delay={300} />}
         </span>
         <span className="mono text-[11px] text-muted">CKB</span>
       </span>

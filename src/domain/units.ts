@@ -81,3 +81,19 @@ export function formatTimestamp(ms: number): string {
   const p = (n: number) => String(n).padStart(2, '0')
   return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())} UTC`
 }
+
+/** Human-readable age of an epoch-ms timestamp, e.g. "5 mins ago". */
+export function formatRelativeTime(ms: number, now: number = Date.now()): string {
+  const seconds = Math.floor(Math.max(0, now - ms) / 1000)
+  if (seconds < 45) return 'just now'
+  const plural = (n: number, unit: string) => `${n} ${unit}${n === 1 ? '' : 's'} ago`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return plural(minutes, 'min')
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return plural(hours, 'hour')
+  const days = Math.floor(hours / 24)
+  if (days < 30) return plural(days, 'day')
+  const months = Math.floor(days / 30)
+  if (months < 12) return plural(months, 'month')
+  return plural(Math.floor(days / 365), 'year')
+}
