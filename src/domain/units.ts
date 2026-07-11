@@ -19,7 +19,8 @@ export function ckb(amount: string | number | bigint): bigint {
   return negative ? -shannons : shannons
 }
 
-function groupThousands(digits: string): string {
+/** Insert thousands separators into a string of digits. */
+export function groupThousands(digits: string): string {
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 

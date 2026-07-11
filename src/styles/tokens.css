@@ -139,6 +139,12 @@
     border: 1px solid var(--color-hairline);
   }
 
+  /* Inferred readings carry a dotted underline so a guess never reads as fact. */
+  .inferred {
+    text-decoration: underline dotted var(--color-muted);
+    text-underline-offset: 3px;
+  }
+
   /* Copy affordance: a subtle hover colour-shift, never a persistent button. */
   .copyable {
     cursor: pointer;
@@ -153,5 +159,18 @@
   /* Squared everything by default; opt into round only for dots. */
   .rounded-none {
     border-radius: 0;
+  }
+
+  /* Connectors draw in on load. pathLength=1 normalizes across path lengths. */
+  .connector {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: connector-draw 0.85s var(--ease-instrument) forwards;
+  }
+
+  @keyframes connector-draw {
+    to {
+      stroke-dashoffset: 0;
+    }
   }
 }
