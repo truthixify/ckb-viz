@@ -45,6 +45,8 @@ export interface Script {
   args: string
   /** blake2b script hash; computed during enrichment, used for token identity. */
   hash?: string
+  /** The ckb2021 address for a lock script (bech32m), when computed. */
+  address?: string
   /** Registry match, absent when the script is unrecognized. */
   known?: KnownScript
 }

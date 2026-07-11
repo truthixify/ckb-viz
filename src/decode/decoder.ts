@@ -1,6 +1,7 @@
 import type { Cell, Network, Script, Transaction } from '@/domain/types'
 import { formatCkb, formatInt } from '@/domain/units'
 import type { ScriptRegistry } from '@/registry/registry'
+import { isUdtType } from './data'
 import { decodeDaoCell } from './dao'
 import { lookupToken } from './tokens'
 import { decodeUdtAmount, formatUdtAmount } from './udt'
@@ -71,13 +72,14 @@ export function decodeTransaction(
     return { kind: 'spore', headline: `A Spore ${verb}.`, inferred: true, confidence: 'medium' }
   }
 
-  // UDT (sUDT / xUDT).
-  const udtOutputs = outputs.filter((o) => ['sudt', 'xudt'].includes(identify(o.type) ?? ''))
+  // UDT (sUDT / xUDT / named tokens).
+  const isUdt = (c: Cell) => (c.type ? isUdtType(network, c.type, registry) : false)
+  const udtOutputs = outputs.filter(isUdt)
   if (udtOutputs.length > 0) {
     const token = udtOutputs[0]?.type ? lookupToken(network, udtOutputs[0].type) : undefined
     const sumUdt = (cells: Cell[]) =>
       cells.reduce((a, c) => a + (decodeUdtAmount(c.data) ?? 0n), 0n)
-    const inUdt = sumUdt(inputCells.filter((c) => ['sudt', 'xudt'].includes(identify(c.type) ?? '')))
+    const inUdt = sumUdt(inputCells.filter(isUdt))
     const movedRaw = sumUdt(udtOutputs.filter((o) => !inputLocks.has(lockKey(o.lock))))
     const moved = movedRaw > 0n ? movedRaw : sumUdt(udtOutputs)
     const amountText = token ? `${formatUdtAmount(moved, token.decimals)} ${token.symbol}` : `${formatInt(moved)} units`

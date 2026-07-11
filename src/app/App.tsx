@@ -6,6 +6,7 @@ import { ScriptRegistry } from '@/registry/registry'
 import { CopyToast } from '@/components/common/CopyToast'
 import { DetailPanel } from '@/components/detail/DetailPanel'
 import { FlowCanvas } from '@/components/flow/FlowCanvas'
+import { TransactionExtras } from '@/components/flow/TransactionExtras'
 import { Breadcrumb } from '@/components/lineage/Breadcrumb'
 import { Header } from '@/components/shell/Header'
 import { SummaryBanner } from '@/components/shell/SummaryBanner'
@@ -190,6 +191,7 @@ export function App() {
                 onSelectCell={onSelectCell}
                 onCopy={onCopy}
               />
+              <TransactionExtras transaction={enriched.transaction} onCopy={onCopy} />
             </>
           ) : null}
         </div>

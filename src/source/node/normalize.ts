@@ -1,9 +1,10 @@
-import type {
-  CellOutput as CccCellOutput,
-  ClientBlockHeader,
-  ClientTransactionResponse,
-  Script as CccScript,
-  Transaction as CccTransaction,
+import {
+  Address,
+  type CellOutput as CccCellOutput,
+  type ClientBlockHeader,
+  type ClientTransactionResponse,
+  type Script as CccScript,
+  type Transaction as CccTransaction,
 } from '@ckb-ccc/core'
 import { occupiedCapacity } from '@/domain/capacity'
 import type { Cell, CellDep, Input, Network, Script, Transaction, TxStatus } from '@/domain/types'
@@ -22,8 +23,14 @@ export function cellFromCcc(
   out: CccCellOutput,
   dataHex: string,
   outPoint: { txHash: string; index: number },
+  addressPrefix: string,
 ): Cell {
   const lock = scriptFromCcc(out.lock)
+  try {
+    lock.address = new Address(out.lock, addressPrefix).toString()
+  } catch {
+    // leave the address unset if encoding fails
+  }
   const type = out.type ? scriptFromCcc(out.type) : undefined
   const data = dataHex || '0x'
   const cell: Cell = {
@@ -48,6 +55,7 @@ export function normalizeTransaction(
   inputCells: (Cell | undefined)[],
   header: ClientBlockHeader | undefined,
   network: Network,
+  addressPrefix: string,
 ): Transaction {
   const inputs: Input[] = tx.inputs.map((inp, i) => {
     const outPoint = { txHash: inp.previousOutput.txHash, index: Number(inp.previousOutput.index) }
@@ -58,7 +66,7 @@ export function normalizeTransaction(
   })
 
   const outputs: Cell[] = tx.outputs.map((out, i) =>
-    cellFromCcc(out, tx.outputsData[i] ?? '0x', { txHash: hash, index: i }),
+    cellFromCcc(out, tx.outputsData[i] ?? '0x', { txHash: hash, index: i }, addressPrefix),
   )
 
   const cellDeps: CellDep[] = tx.cellDeps.map((d) => ({

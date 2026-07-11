@@ -9,7 +9,7 @@ import type {
   TxStatus,
 } from '@/domain/types'
 import { ckb } from '@/domain/units'
-import { CODE_HASHES, type KnownScriptId } from '@/registry/codeHashes'
+import { deploymentFor, type KnownScriptId } from '@/registry/codeHashes'
 
 /**
  * Bundled example transactions in the normalized SPEC §5 shape (raw — the
@@ -69,7 +69,7 @@ function u128le(value: bigint): string {
 }
 
 function deployment(id: KnownScriptId): { codeHash: string; hashType: Script['hashType'] } {
-  const d = CODE_HASHES[id][NETWORK]
+  const d = deploymentFor(id, NETWORK)
   if (!d) throw new Error(`no ${NETWORK} deployment for ${id}`)
   return d
 }

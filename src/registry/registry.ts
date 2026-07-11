@@ -1,6 +1,6 @@
 import type { CellDep, KnownScript, Network, Script } from '@/domain/types'
 import { truncateHash } from '@/domain/units'
-import { CODE_HASHES, type KnownScriptId } from './codeHashes'
+import { deploymentFor, type KnownScriptId } from './codeHashes'
 import { KNOWN_DEPS } from './deps'
 import { SCRIPT_META } from './seed'
 
@@ -22,7 +22,7 @@ interface RegistryEntry extends KnownScript {
 function buildTable(network: Network): Map<string, RegistryEntry> {
   const table = new Map<string, RegistryEntry>()
   for (const id of Object.keys(SCRIPT_META) as KnownScriptId[]) {
-    const deployment = CODE_HASHES[id][network]
+    const deployment = deploymentFor(id, network)
     if (!deployment) continue
     const meta = SCRIPT_META[id]
     const entry: RegistryEntry = { id, ...meta }

@@ -61,6 +61,52 @@ export const CODE_HASHES = {
     mainnet: { codeHash: '0x7366a61534fa7c7e6225ecc0d828ea3b5366adec2b58206f2ee84995fe030075', hashType: 'data1' },
     testnet: { codeHash: '0x0bbe768b519d8ea7b96d58f1182eb7e6ef96c541fbd9526975077ee09f049058', hashType: 'data1' },
   },
+  // xUDT-compatible stablecoins / wrapped assets deploy their own type-script code.
+  usdi: {
+    mainnet: { codeHash: '0xbfa35a9c38a676682b65ade8f02be164d48632281477e36f8dc2f41f79e56bfc', hashType: 'type' },
+  },
+  rusd: {
+    mainnet: { codeHash: '0x26a33e0815888a4a0614a0b7d09fa951e0993ff21e55905510104a0b1312032b', hashType: 'type' },
+  },
+  ccbtc: {
+    mainnet: { codeHash: '0x092c2c4a26ea475a8e860c29cf00502103add677705e2ccd8d6fe5af3caa5ae3', hashType: 'type' },
+  },
+  wckb: {
+    mainnet: { codeHash: '0x42a0b2aacc836c0fc2bbd421a9020de42b8411584190f30be547fdf54214acc3', hashType: 'type' },
+  },
+  // Additional well-known scripts.
+  cheque: {
+    mainnet: { codeHash: '0xe4d4ecc6e5f9a059bf2f7a82cca292083aebc0c421566a52484fe2ec51a9fb0c', hashType: 'type' },
+    testnet: { codeHash: '0x60d5f39efce409c587cb9ea359cefdead650ca128f0bd9cb3855348f98c70d5b', hashType: 'type' },
+  },
+  btcTimeLock: {
+    mainnet: { codeHash: '0x70d64497a075bd651e98ac030455ea200637ee325a12ad08aff03f1a117e5a62', hashType: 'type' },
+  },
+  nostrLock: {
+    mainnet: { codeHash: '0x641a89ad2f77721b803cd50d01351c1f308444072d5fa20088567196c0574c68', hashType: 'type' },
+    testnet: { codeHash: '0x6ae5ee0cb887b2df5a9a18137315b9bdc55be8d52637b2de0624092d5f0c91d5', hashType: 'type' },
+  },
+  pwLock: {
+    mainnet: { codeHash: '0xbf43c3602455798c1a61a596e0d95278864c552fafe231c063b3fabf97a8febc', hashType: 'type' },
+    testnet: { codeHash: '0x58c5f491aba6d61678b7cf7edf4910b1f5e00ec0cde2f42e0abb4fd9aff25a63', hashType: 'type' },
+  },
+  uniqueType: {
+    mainnet: { codeHash: '0x2c8c11c985da60b0a330c61a85507416d6382c130ba67f0c47ab071e00aec628', hashType: 'data1' },
+    testnet: { codeHash: '0x8e341bcfec6393dcd41e635733ff2dca00a6af546949f70c57a706c0f344df8b', hashType: 'type' },
+  },
+  cota: {
+    mainnet: { codeHash: '0x1122a4fb54697cf2e6e3a96c9d80fd398a936559b90954c6e88eb7ba0cf652df', hashType: 'type' },
+    testnet: { codeHash: '0x89cd8003a0eaf8e65e0c31525b7d1d5c1becefd2ea75bb4cff87810ae37764d8', hashType: 'type' },
+  },
+  didCkb: {
+    mainnet: { codeHash: '0x4a06164dc34dccade5afe3e847a97b6db743e79f5477fa3295acf02849c5984a', hashType: 'type' },
+    testnet: { codeHash: '0x510150477b10d6ab551a509b71265f3164e9fd4137fcb5a4322f49f03092c7c5', hashType: 'type' },
+  },
 } as const satisfies Record<string, PerNetwork>
 
 export type KnownScriptId = keyof typeof CODE_HASHES
+
+/** The deployment of a known script on a network, or undefined if not deployed. */
+export function deploymentFor(id: KnownScriptId, network: Network): Deployment | undefined {
+  return (CODE_HASHES[id] as PerNetwork)[network]
+}

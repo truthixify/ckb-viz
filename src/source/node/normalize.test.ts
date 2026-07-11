@@ -26,10 +26,10 @@ describe('CCC normalizer', () => {
 
     const resp = { status: 'committed', blockNumber: 42n, cycles: 1000n } as unknown as ClientTransactionResponse
     const header = { timestamp: 1_700_000_000_000n } as unknown as ClientBlockHeader
-    const resolvedInput = cellFromCcc(inputOut, '0x', { txHash: '0x' + 'bb'.repeat(32), index: 0 })
+    const resolvedInput = cellFromCcc(inputOut, '0x', { txHash: '0x' + 'bb'.repeat(32), index: 0 }, 'ckb')
 
     const hash = '0x' + 'ee'.repeat(32)
-    const result = normalizeTransaction(hash, tx, resp, [resolvedInput], header, 'mainnet')
+    const result = normalizeTransaction(hash, tx, resp, [resolvedInput], header, 'mainnet', 'ckb')
 
     expect(result.status).toBe('committed')
     expect(result.size).toBe(816)
@@ -56,7 +56,7 @@ describe('CCC normalizer', () => {
     } as unknown as CccTransaction
     const resp = { status: 'committed' } as unknown as ClientTransactionResponse
 
-    const result = normalizeTransaction('0x' + 'ee'.repeat(32), tx, resp, [undefined], undefined, 'mainnet')
+    const result = normalizeTransaction('0x' + 'ee'.repeat(32), tx, resp, [undefined], undefined, 'mainnet', 'ckb')
     expect(result.fee).toBeUndefined()
     expect(result.inputs[0]?.cell).toBeUndefined()
   })

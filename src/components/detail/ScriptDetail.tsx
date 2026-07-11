@@ -31,6 +31,7 @@ export function ScriptDetail({
         <p className="text-[12px] leading-relaxed text-bone-dim">{known.meaning}</p>
       )}
 
+      {script.address && <Field label="Address" value={script.address} onCopy={onCopy} />}
       <Field label="Code hash" value={script.codeHash} onCopy={onCopy} />
       <Field label="Hash type" value={script.hashType} />
       <Field label="Args" value={script.args} onCopy={onCopy} />

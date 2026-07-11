@@ -65,7 +65,15 @@ export class NodeSource implements TransactionSource {
       }
     }
 
-    return normalizeTransaction(hash, tx, resp, inputCells, header ?? undefined, this.network)
+    return normalizeTransaction(
+      hash,
+      tx,
+      resp,
+      inputCells,
+      header ?? undefined,
+      this.network,
+      this.client.addressPrefix,
+    )
   }
 
   /**
@@ -145,16 +153,17 @@ export class NodeSource implements TransactionSource {
 
   private async resolveOne(outPoint: CccOutPoint): Promise<Cell | undefined> {
     const location = { txHash: outPoint.txHash, index: Number(outPoint.index) }
+    const prefix = this.client.addressPrefix
     try {
       const live = await this.client.getCellLive(outPoint, true)
-      if (live) return cellFromCcc(live.cellOutput, live.outputData, location)
+      if (live) return cellFromCcc(live.cellOutput, live.outputData, location, prefix)
 
       // Spent or not live — fall back to the creating transaction's output.
       const prev = await this.client.getTransaction(outPoint.txHash)
       if (!prev) return undefined
       const output = prev.transaction.outputs[location.index]
       if (!output) return undefined
-      return cellFromCcc(output, prev.transaction.outputsData[location.index] ?? '0x', location)
+      return cellFromCcc(output, prev.transaction.outputsData[location.index] ?? '0x', location, prefix)
     } catch {
       return undefined
     }
