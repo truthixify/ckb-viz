@@ -176,7 +176,7 @@ export function App() {
       />
       <ExamplesBar network={network} finding={findingExample} onPick={pickExample} />
 
-      <main className="flex-1 overflow-x-auto px-6 py-10">
+      <main className="flex-1 overflow-x-auto px-4 py-8 min-[560px]:px-6 min-[560px]:py-10">
         <div className="mx-auto flex max-w-[1180px] flex-col gap-8">
           {currentHash === null ? (
             latestQuery.isLoading ? (

@@ -22,7 +22,7 @@ export function SummaryBanner({
 }) {
   const now = useNow(30_000)
   return (
-    <section className="vz-enter flex flex-col gap-6 border border-hairline bg-panel px-7 py-6">
+    <section className="vz-enter flex flex-col gap-6 border border-hairline bg-panel px-5 py-5 min-[560px]:px-7 min-[560px]:py-6">
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-2.5">
@@ -47,7 +47,7 @@ export function SummaryBanner({
         </h1>
       </div>
 
-      <dl className="flex flex-wrap gap-x-12 gap-y-5">
+      <dl className="flex flex-wrap gap-x-8 gap-y-5 min-[560px]:gap-x-12">
         <Reading label="Fee">
           <span className="text-ember">{formatFee(capacity.fee)}</span>
         </Reading>
