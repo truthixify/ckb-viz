@@ -30,8 +30,12 @@ pnpm-debug.log*
 coverage/
 *.tsbuildinfo
 
+# Design reference (Claude design export — kept locally, not committed)
+design/
+
 # Editor / OS
 .DS_Store
+.thumbnail
 .idea/
 .vscode/*
 !.vscode/extensions.json

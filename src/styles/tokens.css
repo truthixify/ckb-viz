@@ -1,0 +1,157 @@
+@import 'tailwindcss';
+
+/*
+  ckb-viz design system — the "furnace-instrument" language.
+  Base is the only background. Ember is the one accent, spent carefully.
+  Flow tints and the dep colour appear as markers, strokes, and totals —
+  never as large fills or body text. No colour is ever a glow or a gradient.
+  Elevation is lightness steps (base -> panel -> panel-2 -> raised) and
+  hairline borders. The only round shapes are status and side-marker dots.
+*/
+
+@theme {
+  /* Surfaces */
+  --color-base: #0c0b0a; /* furnace-ash near-black — the only background */
+  --color-panel: #141312; /* cell cards & panels — one step up */
+  --color-panel-2: #1c1a18; /* elevated: detail panel, menus, hover fills */
+  --color-raised: #22201e; /* raised/selected fill, grouped cells */
+  --color-inset: #070605; /* wells: data blocks, input interior, raw hex */
+
+  /* Type */
+  --color-bone: #f2eee6; /* primary type — warm off-white */
+  --color-bone-dim: #a8a199; /* secondary type, supporting readings */
+  --color-muted: #6e6760; /* mono labels, meta, timestamps, tertiary */
+
+  /* Structure */
+  --color-hairline: #2a2724; /* dividers & sub-borders inside content */
+  --color-border: #3c3835; /* structural borders on cards & panels */
+
+  /* Accent — the one ember */
+  --color-ember: #ff5a1f; /* spine, connectors, focus, primary action */
+  --color-ember-bright: #ff7a45; /* hover/active brightening */
+  --color-ember-well: #4a2313; /* ember-tinted dark fill for the spine well */
+
+  /* Functional codes — markers/strokes/totals only */
+  --color-flow-in: #4aa8ff; /* inputs — consumed cells & the input total */
+  --color-flow-out: #54d6a0; /* outputs — created cells & the output total */
+  --color-dep: #f4b740; /* cell deps — read-not-consumed */
+  --color-alarm: #ff4d4d; /* errors, alarms */
+
+  /* Fonts */
+  --font-sans: 'Geist Variable', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Squared corners only. Round is reserved for dots. */
+  --radius-none: 0;
+
+  /* Motion — minimal and meaningful */
+  --ease-instrument: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-hairline);
+  }
+
+  html {
+    color-scheme: dark;
+    background-color: var(--color-base);
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background-color: var(--color-base);
+    color: var(--color-bone);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.45;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Ember focus, always visible for keyboard users. No glow — a solid ring. */
+  :focus-visible {
+    outline: 2px solid var(--color-ember);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-ember) 40%, transparent);
+    color: var(--color-bone);
+  }
+
+  /* Numbers, hashes, capacities read as an instrument. */
+  code,
+  kbd,
+  samp,
+  pre {
+    font-family: var(--font-mono);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* The meta label: mono, uppercase, letter-spaced, muted — used everywhere
+     for INPUT / OUTPUT / FEE / STATUS and other instrument labels. */
+  .meta-label {
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    font-size: 10px;
+    line-height: 1;
+    letter-spacing: 0.14em;
+    color: var(--color-muted);
+    font-weight: 500;
+  }
+
+  .meta-label-sm {
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    font-size: 9px;
+    line-height: 1;
+    letter-spacing: 0.16em;
+    color: var(--color-muted);
+    font-weight: 500;
+  }
+
+  /* Monospace technical readings (hashes, args, out-points, shannons). */
+  .mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* A well: a recessed inset region for raw hex / data blocks. */
+  .well {
+    background-color: var(--color-inset);
+    border: 1px solid var(--color-hairline);
+  }
+
+  /* Copy affordance: a subtle hover colour-shift, never a persistent button. */
+  .copyable {
+    cursor: pointer;
+    transition: color 120ms var(--ease-instrument);
+  }
+  .copyable:hover {
+    color: var(--color-bone);
+  }
+}
+
+@layer utilities {
+  /* Squared everything by default; opt into round only for dots. */
+  .rounded-none {
+    border-radius: 0;
+  }
+}
