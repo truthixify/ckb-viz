@@ -43,7 +43,7 @@ describe('field decoders', () => {
   it('formats a UDT amount rounded to 2 decimal places', () => {
     expect(formatUdtAmount(19_310_736164n, 6)).toBe('19,310.74')
     expect(formatUdtAmount(1_500_000000n, 6)).toBe('1,500')
-    expect(formatUdtAmount(100_500000n, 6)).toBe('100.5')
+    expect(formatUdtAmount(100_500000n, 6)).toBe('100.50')
     expect(formatUdtAmount(1000n, 6)).toBe('<0.01')
     expect(formatUdtAmount(12_345678n, 8)).toBe('0.12')
   })

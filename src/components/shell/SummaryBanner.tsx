@@ -1,8 +1,7 @@
 import { useNow } from '@/app/motion'
 import type { CapacityBreakdown, Transaction } from '@/domain/types'
-import { formatBytes, formatInt, formatRelativeTime, formatTimestamp } from '@/domain/units'
+import { formatBytes, formatFee, formatInt, formatRelativeTime, formatTimestamp } from '@/domain/units'
 import type { DecodeResult } from '@/decode/decoder'
-import { CountingCkb } from '../common/CountingCkb'
 import { StatusDot } from '../common/StatusDot'
 
 /**
@@ -50,9 +49,7 @@ export function SummaryBanner({
 
       <dl className="flex flex-wrap gap-x-12 gap-y-5">
         <Reading label="Fee">
-          <span className="text-ember">
-            {capacity.fee === undefined ? '—' : <><CountingCkb value={capacity.fee} duration={850} /> CKB</>}
-          </span>
+          <span className="text-ember">{formatFee(capacity.fee)}</span>
         </Reading>
         <Reading label="Size">{formatBytes(transaction.size)}</Reading>
         <Reading label="Cycles">

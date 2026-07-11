@@ -24,23 +24,49 @@ export function groupThousands(digits: string): string {
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
-/** Format shannons as a CKB string with thousands separators and trimmed
- *  trailing-zero decimals: 1_000_000_000_000n -> "10,000". Negative is signed. */
+const CKB_DISPLAY_DECIMALS = 2
+const SHANNON_PER_DISPLAY = 10n ** BigInt(CKB_DECIMALS - CKB_DISPLAY_DECIMALS) // 0.01 CKB
+
+/**
+ * Round shannons to 2 CKB decimals (half up) and return the display pieces for
+ * the two-size capacity number on a cell. A whole amount has an empty `frac`; a
+ * non-zero amount below 0.01 CKB is `tiny`.
+ */
+export function ckbParts(shannons: bigint): {
+  negative: boolean
+  int: string
+  frac: string
+  tiny: boolean
+} {
+  const negative = shannons < 0n
+  const abs = negative ? -shannons : shannons
+  const rounded = (abs + SHANNON_PER_DISPLAY / 2n) / SHANNON_PER_DISPLAY // units of 0.01 CKB
+  const scale = 10n ** BigInt(CKB_DISPLAY_DECIMALS)
+  const fracNum = rounded % scale
+  return {
+    negative,
+    int: groupThousands((rounded / scale).toString()),
+    frac: fracNum === 0n ? '' : fracNum.toString().padStart(CKB_DISPLAY_DECIMALS, '0'),
+    tiny: rounded === 0n && abs > 0n,
+  }
+}
+
+/** Format shannons as CKB, rounded (half up) to 2 decimals: "10,000",
+ *  "1,747.90", "<0.01". Whole amounts drop the decimals; negative is signed. */
 export function formatCkb(shannons: bigint): string {
-  const { int, frac, negative } = splitCkb(shannons)
-  const grouped = groupThousands(int)
-  const body = frac ? `${grouped}.${frac}` : grouped
+  const { negative, int, frac, tiny } = ckbParts(shannons)
+  if (tiny) return negative ? '>-0.01' : '<0.01'
+  const body = frac ? `${int}.${frac}` : int
   return negative ? `-${body}` : body
 }
 
-/** Split shannons into the integer and (trimmed) fractional CKB parts, for the
- *  two-size capacity display on a cell. */
-export function splitCkb(shannons: bigint): { int: string; frac: string; negative: boolean } {
-  const negative = shannons < 0n
-  const abs = negative ? -shannons : shannons
-  const int = (abs / SHANNON_PER_CKB).toString()
-  const frac = (abs % SHANNON_PER_CKB).toString().padStart(CKB_DECIMALS, '0').replace(/0+$/, '')
-  return { int, frac, negative }
+/** Format a transaction fee: fees below 0.01 CKB (which round to "<0.01") are
+ *  shown in shannons so the value stays legible; larger fees use 2dp CKB. */
+export function formatFee(shannons: bigint | undefined): string {
+  if (shannons === undefined) return '—'
+  const abs = shannons < 0n ? -shannons : shannons
+  if (abs < SHANNON_PER_DISPLAY) return `${formatInt(shannons)} shannon`
+  return `${formatCkb(shannons)} CKB`
 }
 
 /** Plain integer with thousands separators (for cycles, size, block, counts). */

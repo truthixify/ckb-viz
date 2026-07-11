@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { Cell } from '@/domain/types'
-import { formatCkb, formatOutPoint, groupThousands, splitCkb } from '@/domain/units'
+import { ckbParts, formatCkb, formatOutPoint } from '@/domain/units'
 import type { CellSide } from '../flow/types'
 import { ScriptDetail } from './ScriptDetail'
 
@@ -44,7 +44,7 @@ export function DetailPanel({
     }
   }, [onClose])
 
-  const { int, frac } = splitCkb(cell.capacity)
+  const { int, frac } = ckbParts(cell.capacity)
   const decoded = cell.decoded
 
   return (
@@ -73,7 +73,7 @@ export function DetailPanel({
           <span className="meta-label">Capacity</span>
           <div className="flex items-baseline gap-1.5">
             <span className="mono text-[30px] font-medium leading-none text-bone">
-              {groupThousands(int)}
+              {int}
               {frac && <span className="text-bone-dim">.{frac}</span>}
             </span>
             <span className="mono text-[11px] uppercase tracking-[0.1em] text-muted">CKB</span>

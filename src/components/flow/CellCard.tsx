@@ -1,6 +1,6 @@
 import { clsx } from '@/app/clsx'
 import type { Cell } from '@/domain/types'
-import { formatOutPoint, groupThousands, splitCkb } from '@/domain/units'
+import { ckbParts, formatOutPoint } from '@/domain/units'
 import { ScriptTag } from './ScriptTag'
 import type { CellSide } from './types'
 
@@ -27,7 +27,7 @@ interface CellCardProps {
 export function CellCard(props: CellCardProps) {
   const { cell, side, index, id, active, selected, onActivate, onSelect, registerRef, onCopy } = props
   const isOutput = side === 'output'
-  const { int, frac } = splitCkb(cell.capacity)
+  const { int, frac } = ckbParts(cell.capacity)
   const decoded = cell.decoded
   const outPoint = cell.outPoint ? formatOutPoint(cell.outPoint) : undefined
 
@@ -103,7 +103,7 @@ export function CellCard(props: CellCardProps) {
 
       <div className="flex items-baseline gap-1.5">
         <span className="mono text-[28px] font-medium leading-none tracking-tight text-bone">
-          {groupThousands(int)}
+          {int}
           {frac && <span className="text-bone-dim">.{frac}</span>}
         </span>
         <span className="mono text-[11px] uppercase tracking-[0.1em] text-muted">CKB</span>

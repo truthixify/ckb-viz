@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   ckb,
   formatCkb,
-  splitCkb,
+  formatFee,
+  ckbParts,
   truncateHash,
   formatOutPoint,
   isValidTxHash,
@@ -17,15 +18,24 @@ describe('ckb / shannon conversion', () => {
     expect(ckb(1n)).toBe(100_000_000n)
   })
 
-  it('formats shannons back to grouped CKB, trimming trailing zeros', () => {
+  it('formats shannons as CKB rounded to 2 decimals', () => {
     expect(formatCkb(1_000_000_000_000n)).toBe('10,000')
-    expect(formatCkb(99_999_900_000n)).toBe('999.999')
-    expect(formatCkb(100_000n)).toBe('0.001')
+    expect(formatCkb(174_790_321_000n)).toBe('1,747.90') // 1747.90321 -> 1,747.90
+    expect(formatCkb(99_999_900_000n)).toBe('1,000') // 999.999 rounds up
+    expect(formatCkb(40_000_000_000n)).toBe('400') // whole stays clean
+    expect(formatCkb(100_000n)).toBe('<0.01') // 0.001 CKB
+    expect(formatCkb(-147_922_668_736n)).toBe('-1,479.23')
   })
 
-  it('splits for the two-size capacity display', () => {
-    expect(splitCkb(99_999_900_000n)).toEqual({ int: '999', frac: '999', negative: false })
-    expect(splitCkb(1_000_000_000_000n)).toEqual({ int: '10000', frac: '', negative: false })
+  it('splits into 2dp parts for the two-size capacity display', () => {
+    expect(ckbParts(174_790_321_000n)).toMatchObject({ int: '1,747', frac: '90' })
+    expect(ckbParts(40_000_000_000n)).toMatchObject({ int: '400', frac: '' })
+  })
+
+  it('formats fees, keeping tiny fees in shannons', () => {
+    expect(formatFee(1345n)).toBe('1,345 shannon')
+    expect(formatFee(undefined)).toBe('—')
+    expect(formatFee(-147_922_668_736n)).toBe('-1,479.23 CKB')
   })
 })
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { useIsNarrow, usePrefersReducedMotion } from '@/app/motion'
 import { clsx } from '@/app/clsx'
 import type { CapacityBreakdown, Cell, Transaction } from '@/domain/types'
-import { formatInt } from '@/domain/units'
+import { formatFee } from '@/domain/units'
 import { CountingCkb } from '../common/CountingCkb'
 import { CellCard } from './CellCard'
 import { CellDepsLane } from './CellDepsLane'
@@ -442,13 +442,7 @@ function FeeTotal({ fee, center }: { fee: bigint | undefined; center: boolean })
   return (
     <div className={clsx('flex flex-col gap-1.5', center ? 'items-center text-center' : 'items-start text-left')}>
       <span className="mono text-[10px] font-medium uppercase tracking-[0.16em] text-muted">Fee = In − Out</span>
-      <span className={clsx('flex items-baseline gap-1.5', center && 'justify-center')}>
-        <span className="mono text-[22px] font-medium tracking-tight text-ember">
-          {fee === undefined ? '—' : <CountingCkb value={fee} duration={850} delay={300} />}
-        </span>
-        <span className="mono text-[11px] text-muted">CKB</span>
-      </span>
-      {fee !== undefined && <span className="mono text-[10px] text-muted">{formatInt(fee)} shannon</span>}
+      <span className="mono text-[22px] font-medium tracking-tight text-ember">{formatFee(fee)}</span>
     </div>
   )
 }
