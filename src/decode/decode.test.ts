@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { ScriptRegistry } from '@/registry/registry'
 import { EXAMPLES } from '@/source/bundled/examples'
 import { decodeSince } from './since'
-import { decodeUdtAmount } from './udt'
+import { decodeUdtAmount, formatUdtAmount } from './udt'
 import { decodeDaoCell } from './dao'
 import { enrichTransaction } from './enrich'
 
@@ -38,6 +38,14 @@ describe('field decoders', () => {
     // 1,500 * 10^6 = 0x59682F00, encoded as a leading 16-byte little-endian u128
     expect(decodeUdtAmount('0x002f6859000000000000000000000000')).toBe(1_500_000000n)
     expect(decodeUdtAmount('0x00')).toBeNull()
+  })
+
+  it('formats a UDT amount rounded to 2 decimal places', () => {
+    expect(formatUdtAmount(19_310_736164n, 6)).toBe('19,310.74')
+    expect(formatUdtAmount(1_500_000000n, 6)).toBe('1,500')
+    expect(formatUdtAmount(100_500000n, 6)).toBe('100.5')
+    expect(formatUdtAmount(1000n, 6)).toBe('<0.01')
+    expect(formatUdtAmount(12_345678n, 8)).toBe('0.12')
   })
 
   it('classifies a DAO deposit vs withdrawal', () => {

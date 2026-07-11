@@ -15,14 +15,28 @@ export function decodeUdtAmount(dataHex: string): bigint | null {
   }
 }
 
-/** Scale a raw UDT integer by its decimals into a display string. */
+const DISPLAY_DECIMALS = 2
+
+/** Scale a raw UDT integer by its decimals into a display string, rounded (half
+ *  up) to 2 decimal places. A non-zero amount that rounds to zero shows as
+ *  "<0.01" rather than "0". */
 export function formatUdtAmount(raw: bigint, decimals: number): string {
   if (decimals <= 0) return groupThousands(raw.toString())
-  const base = 10n ** BigInt(decimals)
-  const whole = raw / base
-  const frac = (raw % base).toString().padStart(decimals, '0').replace(/0+$/, '')
-  const grouped = groupThousands(whole.toString())
-  return frac ? `${grouped}.${frac}` : grouped
+
+  if (decimals <= DISPLAY_DECIMALS) {
+    const base = 10n ** BigInt(decimals)
+    const whole = groupThousands((raw / base).toString())
+    const frac = (raw % base).toString().padStart(decimals, '0').replace(/0+$/, '')
+    return frac ? `${whole}.${frac}` : whole
+  }
+
+  const divisor = 10n ** BigInt(decimals - DISPLAY_DECIMALS)
+  const rounded = (raw + divisor / 2n) / divisor // in units of 10^-2
+  if (rounded === 0n && raw > 0n) return '<0.01'
+  const scale = 10n ** BigInt(DISPLAY_DECIMALS)
+  const whole = groupThousands((rounded / scale).toString())
+  const frac = (rounded % scale).toString().padStart(DISPLAY_DECIMALS, '0').replace(/0+$/, '')
+  return frac ? `${whole}.${frac}` : whole
 }
 
 function groupThousands(digits: string): string {
