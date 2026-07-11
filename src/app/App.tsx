@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { Cell, Network } from '@/domain/types'
 import { isVizError } from '@/domain/errors'
@@ -13,6 +13,7 @@ import { EmptyState } from '@/components/states/EmptyState'
 import { ErrorState } from '@/components/states/ErrorState'
 import { LoadingState } from '@/components/states/LoadingState'
 import { createSource } from './source'
+import { buildUrl, parseLocation } from './url'
 import { useTransaction } from './useTransaction'
 
 function parseCellId(id: string): { side: 'input' | 'output'; index: number } | null {
@@ -21,12 +22,28 @@ function parseCellId(id: string): { side: 'input' | 'output'; index: number } | 
   return { side: prefix === 'in' ? 'input' : 'output', index: Number(idx) }
 }
 
+const initialUrl = parseLocation()
+
 export function App() {
-  const [network, setNetwork] = useState<Network>('mainnet')
-  const [path, setPath] = useState<string[]>([])
+  const [network, setNetwork] = useState<Network>(initialUrl.network)
+  const [path, setPath] = useState<string[]>(initialUrl.path)
   const [inputValue, setInputValue] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+
+  const fromPopState = useRef(false)
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => {
+      fromPopState.current = true
+      const state = e.state as { path?: string[]; network?: Network } | null
+      const next = state?.path && state?.network ? state : parseLocation()
+      setNetwork(next.network ?? 'mainnet')
+      setPath(next.path ?? [])
+      setSelectedId(null)
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   const source = useMemo(() => createSource(network), [network])
   const registry = useMemo(() => new ScriptRegistry(network), [network])
@@ -41,6 +58,22 @@ export function App() {
   const currentHash = path.length > 0 ? path[path.length - 1]! : (latestQuery.data ?? null)
   const txQuery = useTransaction(source, registry, currentHash)
   const enriched = txQuery.data
+
+  // Reflect the displayed transaction in the URL (shareable), carrying the
+  // lineage path in history state so back/forward restores the full walk.
+  const isFirstSync = useRef(true)
+  useEffect(() => {
+    const url = buildUrl(network, currentHash)
+    const state = { path, network }
+    if (fromPopState.current) {
+      fromPopState.current = false
+    } else if (isFirstSync.current || path.length === 0) {
+      isFirstSync.current = false
+      window.history.replaceState(state, '', url)
+    } else {
+      window.history.pushState(state, '', url)
+    }
+  }, [network, currentHash, path])
 
   useEffect(() => {
     if (!toast) return
@@ -144,6 +177,10 @@ export function App() {
                 transaction={enriched.transaction}
                 capacity={enriched.capacity}
                 summary={enriched.summary}
+                onCopyLink={() => {
+                  void navigator.clipboard?.writeText(window.location.href)
+                  setToast('Link copied')
+                }}
               />
               <FlowCanvas
                 key={`flow-${currentHash}`}

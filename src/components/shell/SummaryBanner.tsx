@@ -14,23 +14,35 @@ export function SummaryBanner({
   transaction,
   capacity,
   summary,
+  onCopyLink,
 }: {
   transaction: Transaction
   capacity: CapacityBreakdown
   summary: DecodeResult
+  onCopyLink: () => void
 }) {
   const now = useNow(30_000)
   return (
     <section className="vz-enter flex flex-col gap-6 border border-hairline bg-panel px-7 py-6">
       <div className="flex flex-col gap-3">
-        <span className="flex items-center gap-2.5">
-          <span className="meta-label">Transaction summary</span>
-          {summary.inferred && (
-            <span className="mono text-[9px] uppercase tracking-[0.14em] text-muted">
-              · inferred
-            </span>
-          )}
-        </span>
+        <div className="flex items-center justify-between gap-4">
+          <span className="flex items-center gap-2.5">
+            <span className="meta-label">Transaction summary</span>
+            {summary.inferred && (
+              <span className="mono text-[9px] uppercase tracking-[0.14em] text-muted">
+                · inferred
+              </span>
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={onCopyLink}
+            className="mono flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-muted transition-colors hover:text-ember"
+            title="Copy a shareable link to this transaction"
+          >
+            <span aria-hidden>↗</span> Copy link
+          </button>
+        </div>
         <h1 className="max-w-3xl text-[32px] font-medium leading-tight tracking-tight text-bone">
           {summary.headline}
         </h1>
