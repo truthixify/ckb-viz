@@ -5,6 +5,7 @@ import {
   type OutPoint as CccOutPoint,
   type Transaction as CccTransaction,
 } from '@ckb-ccc/core'
+import { EXAMPLE_KINDS, exampleSearch } from '@/app/examples'
 import { VizError } from '@/domain/errors'
 import type { Cell, Network, OutPoint, Transaction } from '@/domain/types'
 import type { SourceCapabilities, TransactionSource } from '../TransactionSource'
@@ -102,6 +103,22 @@ export class NodeSource implements TransactionSource {
     }
     const tipBlock = await this.client.getBlockByNumber(tip)
     return tipBlock?.transactions[0]?.hash() ?? null
+  }
+
+  async findExampleTransaction(kindId: string): Promise<string | null> {
+    const kind = EXAMPLE_KINDS.find((k) => k.id === kindId)
+    if (!kind) return null
+    const search = exampleSearch(kind, this.network)
+    if (!search) return null
+    const key = { ...search, scriptSearchMode: 'exact' as const }
+    try {
+      for await (const record of this.client.findTransactions(key, 'desc', 1)) {
+        return record.txHash
+      }
+    } catch {
+      return null
+    }
+    return null
   }
 
   /**

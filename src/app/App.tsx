@@ -10,6 +10,7 @@ import { TransactionExtras } from '@/components/flow/TransactionExtras'
 import { Breadcrumb } from '@/components/lineage/Breadcrumb'
 import { Header } from '@/components/shell/Header'
 import { SummaryBanner } from '@/components/shell/SummaryBanner'
+import { ExamplesBar } from '@/components/shell/ExamplesBar'
 import { EmptyState } from '@/components/states/EmptyState'
 import { ErrorState } from '@/components/states/ErrorState'
 import { LoadingState } from '@/components/states/LoadingState'
@@ -31,6 +32,7 @@ export function App() {
   const [inputValue, setInputValue] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [findingExample, setFindingExample] = useState<string | null>(null)
 
   const fromPopState = useRef(false)
   useEffect(() => {
@@ -110,6 +112,22 @@ export function App() {
     setSelectedId((cur) => (cur === id ? null : id))
   }, [])
 
+  const pickExample = useCallback(
+    async (kindId: string, label: string) => {
+      setFindingExample(kindId)
+      try {
+        const hash = await source.findExampleTransaction(kindId)
+        if (hash) loadHash(hash)
+        else setToast(`No recent ${label} transaction found`)
+      } catch {
+        setToast('Could not search for an example')
+      } finally {
+        setFindingExample(null)
+      }
+    },
+    [source, loadHash],
+  )
+
   const traceForward = useCallback(async () => {
     const sel = selectedId ? parseCellId(selectedId) : null
     if (!sel || sel.side !== 'output' || !currentHash) return
@@ -155,6 +173,7 @@ export function App() {
         onNetwork={onNetwork}
         onHome={onHome}
       />
+      <ExamplesBar network={network} finding={findingExample} onPick={pickExample} />
 
       <main className="flex-1 overflow-x-auto px-6 py-10">
         <div className="mx-auto flex max-w-[1180px] flex-col gap-8">

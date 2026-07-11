@@ -44,6 +44,10 @@ class CompositeSource implements TransactionSource {
   async getLatestTransactionHash(): Promise<string | null> {
     return (await this.getNode()).getLatestTransactionHash()
   }
+
+  async findExampleTransaction(kindId: string): Promise<string | null> {
+    return (await this.getNode()).findExampleTransaction(kindId)
+  }
 }
 
 export function createSource(network: Network): TransactionSource {

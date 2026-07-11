@@ -25,11 +25,12 @@ export function groupThousands(digits: string): string {
 }
 
 /** Format shannons as a CKB string with thousands separators and trimmed
- *  trailing-zero decimals: 1_000_000_000_000n -> "10,000". */
+ *  trailing-zero decimals: 1_000_000_000_000n -> "10,000". Negative is signed. */
 export function formatCkb(shannons: bigint): string {
-  const { int, frac } = splitCkb(shannons)
+  const { int, frac, negative } = splitCkb(shannons)
   const grouped = groupThousands(int)
-  return frac ? `${grouped}.${frac}` : grouped
+  const body = frac ? `${grouped}.${frac}` : grouped
+  return negative ? `-${body}` : body
 }
 
 /** Split shannons into the integer and (trimmed) fractional CKB parts, for the

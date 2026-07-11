@@ -45,4 +45,9 @@ export class BundledSource implements TransactionSource {
   getLatestTransactionHash(): Promise<string | null> {
     return Promise.resolve(EXAMPLES[0]?.transaction.hash ?? null)
   }
+
+  findExampleTransaction(kindId: string): Promise<string | null> {
+    const exampleId = kindId === 'dao' ? 'nervos-dao' : kindId === 'usdi' || kindId === 'rusd' ? 'xudt' : kindId
+    return Promise.resolve(EXAMPLES.find((e) => e.id === exampleId)?.transaction.hash ?? null)
+  }
 }

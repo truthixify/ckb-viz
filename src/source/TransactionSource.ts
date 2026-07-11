@@ -27,4 +27,7 @@ export interface TransactionSource {
 
   /** The most recent transaction on this network, to open the tool on. */
   getLatestTransactionHash(): Promise<string | null>
+
+  /** A recent real transaction of a curated kind (dao / token / …), or null. */
+  findExampleTransaction(kindId: string): Promise<string | null>
 }
