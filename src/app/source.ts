@@ -1,12 +1,47 @@
-import type { Network } from '@/domain/types'
-import type { TransactionSource } from '@/source/TransactionSource'
+import type { Network, OutPoint, Transaction } from '@/domain/types'
+import type { SourceCapabilities, TransactionSource } from '@/source/TransactionSource'
 import { BundledSource } from '@/source/bundled/BundledSource'
+import { NETWORK_CONFIG } from './config'
 
 /**
- * Builds the active source for a network. For now everything is served by the
- * bundled examples so the tool works with no endpoint; the live node adapter
- * (CCC) is wired in behind this same factory next.
+ * The active source: bundled example transactions by hash (so the tool works
+ * offline and lineage is walkable both ways), and the live CKB node for
+ * everything else. The node adapter (and its CCC dependency) is code-split and
+ * loaded on demand, so opening the tool on the bundled examples stays light.
  */
+class CompositeSource implements TransactionSource {
+  readonly network: Network
+  readonly capabilities: SourceCapabilities = { forwardLineage: true }
+  private readonly bundled: BundledSource
+  private readonly rpcUrl: string
+  private nodePromise?: Promise<TransactionSource>
+
+  constructor(network: Network, rpcUrl: string) {
+    this.network = network
+    this.rpcUrl = rpcUrl
+    this.bundled = new BundledSource(network)
+  }
+
+  private getNode(): Promise<TransactionSource> {
+    if (!this.nodePromise) {
+      this.nodePromise = import('@/source/node/NodeSource').then(
+        (m) => new m.NodeSource(this.network, this.rpcUrl),
+      )
+    }
+    return this.nodePromise
+  }
+
+  async getTransaction(hash: string): Promise<Transaction> {
+    if (this.bundled.has(hash)) return this.bundled.getTransaction(hash)
+    return (await this.getNode()).getTransaction(hash)
+  }
+
+  async findConsumingTx(outPoint: OutPoint): Promise<string | null> {
+    if (this.bundled.has(outPoint.txHash)) return this.bundled.findConsumingTx(outPoint)
+    return (await this.getNode()).findConsumingTx(outPoint)
+  }
+}
+
 export function createSource(network: Network): TransactionSource {
-  return new BundledSource(network)
+  return new CompositeSource(network, NETWORK_CONFIG[network].rpcUrl)
 }

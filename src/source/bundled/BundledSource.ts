@@ -23,6 +23,11 @@ export class BundledSource implements TransactionSource {
     for (const t of LINKED_TRANSACTIONS) this.byHash.set(t.hash, t)
   }
 
+  /** Is this hash one of the bundled transactions? */
+  has(hash: string): boolean {
+    return this.byHash.has(hash)
+  }
+
   getTransaction(hash: string): Promise<Transaction> {
     const found = this.byHash.get(hash)
     if (!found) {

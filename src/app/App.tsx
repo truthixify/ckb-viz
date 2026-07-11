@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Cell, Network } from '@/domain/types'
+import { isVizError } from '@/domain/errors'
 import { ScriptRegistry } from '@/registry/registry'
 import { EXAMPLES } from '@/source/bundled/examples'
 import { CopyToast } from '@/components/common/CopyToast'
@@ -64,12 +65,20 @@ export function App() {
   const traceForward = useCallback(async () => {
     const sel = selectedId ? parseCellId(selectedId) : null
     if (!sel || sel.side !== 'output' || !currentHash) return
-    const consumer = await source.findConsumingTx({ txHash: currentHash, index: sel.index })
-    if (consumer) {
-      setPath((p) => [...p, consumer])
-      setSelectedId(null)
-    } else {
-      setToast('This output is unspent')
+    try {
+      const consumer = await source.findConsumingTx({ txHash: currentHash, index: sel.index })
+      if (consumer) {
+        setPath((p) => [...p, consumer])
+        setSelectedId(null)
+      } else {
+        setToast('This output is unspent')
+      }
+    } catch (error) {
+      setToast(
+        isVizError(error) && error.kind === 'unsupported'
+          ? 'Forward lineage not available for this source'
+          : 'Could not trace forward',
+      )
     }
   }, [selectedId, currentHash, source])
 
