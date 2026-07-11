@@ -126,8 +126,9 @@ export function CellCard(props: CellCardProps) {
         <span className="meta-label">No data</span>
       ) : decoded ? (
         <span
+          title={decoded.label}
           className={clsx(
-            'mono text-[11px] text-bone-dim',
+            'mono block max-w-[220px] truncate text-[11px] text-bone-dim',
             decoded.inferred && 'inferred',
           )}
         >

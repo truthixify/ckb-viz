@@ -112,7 +112,7 @@ export function DetailPanel({
         <div className="flex flex-col gap-2">
           <span className="meta-label">Data</span>
           {decoded && decoded.kind !== 'empty' && (
-            <span className={`mono text-[12px] text-bone-dim ${decoded.inferred ? 'inferred' : ''}`}>
+            <span className={`mono break-all text-[12px] text-bone-dim ${decoded.inferred ? 'inferred' : ''}`}>
               {decoded.label}
             </span>
           )}
