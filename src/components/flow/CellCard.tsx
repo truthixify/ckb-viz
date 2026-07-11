@@ -34,6 +34,7 @@ export function CellCard(props: CellCardProps) {
   return (
     <div
       ref={(el) => registerRef(id, el)}
+      data-flow-cell
       role="button"
       tabIndex={0}
       aria-label={`${isOutput ? `Output ${index}` : 'Input'} cell, ${int} CKB, ${

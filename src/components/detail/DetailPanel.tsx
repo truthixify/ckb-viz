@@ -30,6 +30,7 @@ export function DetailPanel({
   onTraceForward: () => void
 }) {
   const closeRef = useRef<HTMLButtonElement>(null)
+  const asideRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null
@@ -37,9 +38,19 @@ export function DetailPanel({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
+    // Close on a click outside the panel; a click on a flow cell is left to the
+    // cell (so it switches the panel to that cell rather than closing).
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null
+      if (asideRef.current?.contains(target)) return
+      if (target?.closest('[data-flow-cell]')) return
+      onClose()
+    }
     window.addEventListener('keydown', onKey)
+    document.addEventListener('mousedown', onDown)
     return () => {
       window.removeEventListener('keydown', onKey)
+      document.removeEventListener('mousedown', onDown)
       prev?.focus?.()
     }
   }, [onClose])
@@ -49,6 +60,7 @@ export function DetailPanel({
 
   return (
     <aside
+      ref={asideRef}
       role="dialog"
       aria-label="Cell detail"
       className="fixed inset-y-0 right-0 z-30 flex w-[420px] max-w-full flex-col overflow-y-auto border-l border-border bg-panel-2 max-[560px]:w-full"

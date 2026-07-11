@@ -30,6 +30,7 @@ export function GroupedCell({
   return (
     <div
       ref={(el) => registerRef(id, el)}
+      data-flow-cell
       role="button"
       tabIndex={0}
       aria-label={`${count} more cells, expand`}
