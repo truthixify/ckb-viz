@@ -74,3 +74,10 @@ export function formatOutPoint(op: { txHash: string; index: number }): string {
 export function isValidTxHash(value: string): boolean {
   return /^0x[0-9a-fA-F]{64}$/.test(value.trim())
 }
+
+/** Format an epoch-ms timestamp as "2026-07-09 22:41 UTC". */
+export function formatTimestamp(ms: number): string {
+  const d = new Date(ms)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())} UTC`
+}
