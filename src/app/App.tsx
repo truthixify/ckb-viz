@@ -4,6 +4,7 @@ import type { Cell, Network } from '@/domain/types'
 import { isVizError } from '@/domain/errors'
 import { ScriptRegistry } from '@/registry/registry'
 import { CopyToast } from '@/components/common/CopyToast'
+import { SrSummary } from '@/components/common/SrSummary'
 import { DetailPanel } from '@/components/detail/DetailPanel'
 import { FlowCanvas } from '@/components/flow/FlowCanvas'
 import { TransactionExtras } from '@/components/flow/TransactionExtras'
@@ -191,6 +192,11 @@ export function App() {
             <ErrorState error={txQuery.error} />
           ) : enriched ? (
             <>
+              <SrSummary
+                transaction={enriched.transaction}
+                summary={enriched.summary}
+                capacity={enriched.capacity}
+              />
               <Breadcrumb path={path} onNavigate={(i) => { setPath((p) => p.slice(0, i + 1)); setSelectedId(null) }} />
               <SummaryBanner
                 key={`banner-${currentHash}`}

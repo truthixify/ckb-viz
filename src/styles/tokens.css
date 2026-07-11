@@ -74,6 +74,17 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* Interactive elements get a pointer (Tailwind v4 defaults buttons to
+     cursor: default); disabled ones do not. */
+  button:not(:disabled),
+  [role='button'],
+  a {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+
   /* Ember focus, always visible for keyboard users. No glow — a solid ring. */
   :focus-visible {
     outline: 2px solid var(--color-ember);

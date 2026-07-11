@@ -1,7 +1,7 @@
 import type { Network, OutPoint, Transaction } from '@/domain/types'
 import type { SourceCapabilities, TransactionSource } from '@/source/TransactionSource'
 import { BundledSource } from '@/source/bundled/BundledSource'
-import { NETWORK_CONFIG } from './config'
+import { getRpcUrl } from './config'
 
 /**
  * The active source: bundled example transactions by hash (so the tool works
@@ -51,5 +51,5 @@ class CompositeSource implements TransactionSource {
 }
 
 export function createSource(network: Network): TransactionSource {
-  return new CompositeSource(network, NETWORK_CONFIG[network].rpcUrl)
+  return new CompositeSource(network, getRpcUrl(network))
 }

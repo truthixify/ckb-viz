@@ -36,7 +36,11 @@ export function CellCard(props: CellCardProps) {
       ref={(el) => registerRef(id, el)}
       role="button"
       tabIndex={0}
-      aria-label={`${isOutput ? 'Output' : 'Input'} cell, ${int} CKB`}
+      aria-label={`${isOutput ? `Output ${index}` : 'Input'} cell, ${int} CKB, ${
+        cell.lock.known?.shortName ?? 'unrecognized'
+      } lock${cell.type ? `, ${cell.type.known?.shortName ?? 'unrecognized'} type` : ''}${
+        cell.decoded && cell.decoded.kind !== 'empty' ? `, ${cell.decoded.label}` : ''
+      }. Activate to open detail.`}
       onMouseEnter={() => onActivate(id)}
       onMouseLeave={() => onActivate(null)}
       onFocus={() => onActivate(id)}

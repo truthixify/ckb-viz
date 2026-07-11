@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { clsx } from '@/app/clsx'
 import type { Network } from '@/domain/types'
 import { BrandMark } from '../brand/BrandMark'
+import { EndpointSettings } from './EndpointSettings'
 
 /**
  * The top bar (SPEC §9.1): the brand mark (Home), the hash input with a clear
@@ -24,6 +26,7 @@ export function Header({
   onNetwork: (n: Network) => void
   onHome: () => void
 }) {
+  const [settingsOpen, setSettingsOpen] = useState(false)
   return (
     <header className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline px-5 py-3.5">
       <BrandMark onHome={onHome} />
@@ -79,6 +82,24 @@ export function Header({
               {n}
             </button>
           ))}
+        </div>
+
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setSettingsOpen((v) => !v)}
+            aria-label="Endpoint settings"
+            aria-expanded={settingsOpen}
+            className={clsx(
+              'mono flex h-9 items-center border border-border px-2.5 text-[13px] transition-colors',
+              settingsOpen ? 'text-ember' : 'text-muted hover:text-bone-dim',
+            )}
+          >
+            ⚙
+          </button>
+          {settingsOpen && (
+            <EndpointSettings network={network} onClose={() => setSettingsOpen(false)} />
+          )}
         </div>
       </div>
     </header>
