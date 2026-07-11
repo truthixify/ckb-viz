@@ -1,4 +1,3 @@
-import { clsx } from '@/app/clsx'
 import type { CapacityBreakdown, Transaction } from '@/domain/types'
 import { formatBytes, formatCkb, formatInt, formatTimestamp } from '@/domain/units'
 import type { DecodeResult } from '@/decode/decoder'
@@ -21,13 +20,15 @@ export function SummaryBanner({
   return (
     <section className="flex flex-col gap-6 border border-hairline bg-panel px-7 py-6">
       <div className="flex flex-col gap-3">
-        <span className="meta-label">Transaction summary</span>
-        <h1
-          className={clsx(
-            'max-w-3xl text-[32px] font-medium leading-tight tracking-tight text-bone',
-            summary.inferred && 'inferred',
+        <span className="flex items-center gap-2.5">
+          <span className="meta-label">Transaction summary</span>
+          {summary.inferred && (
+            <span className="mono text-[9px] uppercase tracking-[0.14em] text-muted">
+              · inferred
+            </span>
           )}
-        >
+        </span>
+        <h1 className="max-w-3xl text-[32px] font-medium leading-tight tracking-tight text-bone">
           {summary.headline}
         </h1>
       </div>

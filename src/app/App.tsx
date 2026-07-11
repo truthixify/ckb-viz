@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import type { Cell, Network } from '@/domain/types'
 import { isVizError } from '@/domain/errors'
 import { ScriptRegistry } from '@/registry/registry'
-import { EXAMPLES } from '@/source/bundled/examples'
 import { CopyToast } from '@/components/common/CopyToast'
 import { DetailPanel } from '@/components/detail/DetailPanel'
 import { FlowCanvas } from '@/components/flow/FlowCanvas'
 import { Breadcrumb } from '@/components/lineage/Breadcrumb'
-import { ExamplesBar } from '@/components/shell/ExamplesBar'
 import { Header } from '@/components/shell/Header'
 import { SummaryBanner } from '@/components/shell/SummaryBanner'
 import { EmptyState } from '@/components/states/EmptyState'
@@ -24,16 +23,24 @@ function parseCellId(id: string): { side: 'input' | 'output'; index: number } | 
 
 export function App() {
   const [network, setNetwork] = useState<Network>('mainnet')
-  const [path, setPath] = useState<string[]>([EXAMPLES[0]!.transaction.hash])
+  const [path, setPath] = useState<string[]>([])
   const [inputValue, setInputValue] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
   const source = useMemo(() => createSource(network), [network])
   const registry = useMemo(() => new ScriptRegistry(network), [network])
-  const currentHash = path.length > 0 ? path[path.length - 1]! : null
-  const query = useTransaction(source, registry, currentHash)
-  const enriched = query.data
+
+  // The tool opens on the network's latest transaction until the user navigates.
+  const latestQuery = useQuery({
+    queryKey: ['latest', network],
+    queryFn: () => source.getLatestTransactionHash(),
+    staleTime: 15_000,
+    retry: 1,
+  })
+  const currentHash = path.length > 0 ? path[path.length - 1]! : (latestQuery.data ?? null)
+  const txQuery = useTransaction(source, registry, currentHash)
+  const enriched = txQuery.data
 
   useEffect(() => {
     if (!toast) return
@@ -58,6 +65,13 @@ export function App() {
     setInputValue('')
   }, [])
 
+  const onNetwork = useCallback((next: Network) => {
+    setNetwork(next)
+    setPath([])
+    setSelectedId(null)
+    setInputValue('')
+  }, [])
+
   const onSelectCell = useCallback((_cell: Cell, id: string) => {
     setSelectedId((cur) => (cur === id ? null : id))
   }, [])
@@ -71,7 +85,7 @@ export function App() {
         setPath((p) => [...p, consumer])
         setSelectedId(null)
       } else {
-        setToast('This output is unspent')
+        setToast('No spending transaction found')
       }
     } catch (error) {
       setToast(
@@ -82,14 +96,11 @@ export function App() {
     }
   }, [selectedId, currentHash, source])
 
-  const traceBackward = useCallback(
-    (cell: Cell) => {
-      if (!cell.outPoint) return
-      setPath((p) => [...p, cell.outPoint!.txHash])
-      setSelectedId(null)
-    },
-    [],
-  )
+  const traceBackward = useCallback((cell: Cell) => {
+    if (!cell.outPoint) return
+    setPath((p) => [...p, cell.outPoint!.txHash])
+    setSelectedId(null)
+  }, [])
 
   const sel = selectedId ? parseCellId(selectedId) : null
   const selectedCell: Cell | undefined =
@@ -107,19 +118,24 @@ export function App() {
         onSubmit={() => inputValue.trim() && loadHash(inputValue.trim())}
         onClear={() => setInputValue('')}
         network={network}
-        onNetwork={setNetwork}
+        onNetwork={onNetwork}
         onHome={onHome}
       />
-      <ExamplesBar currentHash={currentHash} onPick={loadHash} />
 
       <main className="flex-1 overflow-x-auto px-6 py-10">
         <div className="mx-auto flex max-w-[1180px] flex-col gap-8">
           {currentHash === null ? (
-            <EmptyState />
-          ) : query.isLoading ? (
+            latestQuery.isLoading ? (
+              <LoadingState />
+            ) : latestQuery.isError ? (
+              <ErrorState error={latestQuery.error} />
+            ) : (
+              <EmptyState />
+            )
+          ) : txQuery.isLoading ? (
             <LoadingState />
-          ) : query.isError ? (
-            <ErrorState error={query.error} />
+          ) : txQuery.isError ? (
+            <ErrorState error={txQuery.error} />
           ) : enriched ? (
             <>
               <Breadcrumb path={path} onNavigate={(i) => { setPath((p) => p.slice(0, i + 1)); setSelectedId(null) }} />

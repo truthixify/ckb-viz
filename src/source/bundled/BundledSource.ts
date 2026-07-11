@@ -41,4 +41,8 @@ export class BundledSource implements TransactionSource {
   findConsumingTx(outPoint: OutPoint): Promise<string | null> {
     return Promise.resolve(CONSUMERS[`${outPoint.txHash}:${outPoint.index}`] ?? null)
   }
+
+  getLatestTransactionHash(): Promise<string | null> {
+    return Promise.resolve(EXAMPLES[0]?.transaction.hash ?? null)
+  }
 }

@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import type { CapacityBreakdown, Cell, Transaction } from '@/domain/types'
-import { formatCkb } from '@/domain/units'
+import { formatCkb, formatInt } from '@/domain/units'
 import { CellCard } from './CellCard'
 import { CellDepsLane } from './CellDepsLane'
 import { GroupedCell } from './GroupedCell'
@@ -231,12 +231,12 @@ export function FlowCanvas({
         </Column>
       </div>
 
-      <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-8">
-        <CapacityAnchor label="Inputs total" value={capacity.inputsTotal} tint="var(--color-flow-in)" align="start" />
-        <div className="justify-self-center">
-          <CellDepsLane cellDeps={transaction.cellDeps} onCopy={onCopy} />
-        </div>
-        <CapacityAnchor label="Outputs total" value={capacity.outputsTotal} tint="var(--color-flow-out)" align="end" />
+      <CellDepsLane cellDeps={transaction.cellDeps} onCopy={onCopy} />
+
+      <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-8 border-t border-hairline pt-5">
+        <CapacityTotal label="Σ Input capacity" value={capacity.inputsTotal} tint="var(--color-flow-in)" align="start" />
+        <FeeTotal fee={capacity.fee} />
+        <CapacityTotal label="Σ Output capacity" value={capacity.outputsTotal} tint="var(--color-flow-out)" align="end" />
       </div>
     </div>
   )
@@ -250,7 +250,7 @@ function Column({ align, children }: { align: 'start' | 'end'; children: React.R
   )
 }
 
-function CapacityAnchor({
+function CapacityTotal({
   label,
   value,
   tint,
@@ -262,11 +262,33 @@ function CapacityAnchor({
   align: 'start' | 'end'
 }) {
   return (
-    <div className={`flex flex-col gap-1 ${align === 'end' ? 'items-end text-right' : 'items-start text-left'}`}>
-      <span className="meta-label-sm" style={{ color: tint }}>{label}</span>
-      <span className="mono text-[15px] text-bone">
-        {value === undefined ? '—' : `${formatCkb(value)} CKB`}
+    <div className={`flex flex-col gap-1.5 ${align === 'end' ? 'items-end text-right' : 'items-start text-left'}`}>
+      <span className="mono text-[10px] font-medium uppercase tracking-[0.16em] text-muted">{label}</span>
+      <span className="flex items-baseline gap-1.5">
+        <span className="mono text-[22px] font-medium tracking-tight" style={{ color: tint }}>
+          {value === undefined ? '—' : formatCkb(value)}
+        </span>
+        <span className="mono text-[11px] text-muted">CKB</span>
       </span>
+    </div>
+  )
+}
+
+function FeeTotal({ fee }: { fee: bigint | undefined }) {
+  return (
+    <div className="flex flex-col items-center gap-1.5 text-center">
+      <span className="mono text-[10px] font-medium uppercase tracking-[0.16em] text-muted">
+        Fee = In − Out
+      </span>
+      <span className="flex items-baseline justify-center gap-1.5">
+        <span className="mono text-[22px] font-medium tracking-tight text-ember">
+          {fee === undefined ? '—' : formatCkb(fee)}
+        </span>
+        <span className="mono text-[11px] text-muted">CKB</span>
+      </span>
+      {fee !== undefined && (
+        <span className="mono text-[10px] text-muted">{formatInt(fee)} shannon</span>
+      )}
     </div>
   )
 }

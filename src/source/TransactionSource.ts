@@ -20,8 +20,11 @@ export interface TransactionSource {
 
   /**
    * Forward lineage: the hash of the transaction that consumed `outPoint`, or
-   * null when the output is still live. Throws VizError('unsupported') on a
-   * source that cannot look forward (a bare node).
+   * null when no consuming transaction is found. Throws VizError('unsupported')
+   * on a source that cannot look forward.
    */
   findConsumingTx(outPoint: OutPoint): Promise<string | null>
+
+  /** The most recent transaction on this network, to open the tool on. */
+  getLatestTransactionHash(): Promise<string | null>
 }

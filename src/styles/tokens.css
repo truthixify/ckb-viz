@@ -35,6 +35,7 @@
   --color-flow-in: #4aa8ff; /* inputs — consumed cells & the input total */
   --color-flow-out: #54d6a0; /* outputs — created cells & the output total */
   --color-dep: #f4b740; /* cell deps — read-not-consumed */
+  --color-dep-dim: #6e5a2a; /* dep-tinted dark border for the dep chips */
   --color-alarm: #ff4d4d; /* errors, alarms */
 
   /* Fonts */
@@ -143,6 +144,15 @@
   .inferred {
     text-decoration: underline dotted var(--color-muted);
     text-underline-offset: 3px;
+  }
+
+  /* Dep chip: dashed dep-dim border that brightens to amber on hover. */
+  .dep-chip {
+    border: 1px dashed var(--color-dep-dim);
+    background: var(--color-base);
+  }
+  .dep-chip:hover {
+    border-color: var(--color-dep);
   }
 
   /* Copy affordance: a subtle hover colour-shift, never a persistent button. */

@@ -40,6 +40,10 @@ class CompositeSource implements TransactionSource {
     if (this.bundled.has(outPoint.txHash)) return this.bundled.findConsumingTx(outPoint)
     return (await this.getNode()).findConsumingTx(outPoint)
   }
+
+  async getLatestTransactionHash(): Promise<string | null> {
+    return (await this.getNode()).getLatestTransactionHash()
+  }
 }
 
 export function createSource(network: Network): TransactionSource {
