@@ -118,16 +118,17 @@ function input(outPoint: { txHash: string; index: number }, resolved?: Cell): In
   return base
 }
 
+// Real well-known mainnet dep out-points, so the cell-deps lane resolves.
 const SECP_DEP_GROUP: CellDep = {
-  outPoint: { txHash: h('71a7ba', '72e46c'), index: 0 },
+  outPoint: { txHash: '0x71a7ba8fc96349fea0ed3a5c47992e3b4084b031a42264a018e0072e8172e46c', index: 0 },
   depType: 'depGroup',
 }
 const XUDT_DEP: CellDep = {
-  outPoint: { txHash: h('c1e4d7', 'a0f3b6'), index: 0 },
+  outPoint: { txHash: '0xc07844ce21b38e4b071dd0e1ee3b0e27afd8d7532491327f39b786343f558ab7', index: 0 },
   depType: 'code',
 }
 const DAO_DEP: CellDep = {
-  outPoint: { txHash: h('e2b4d6', 'f8a0c1'), index: 2 },
+  outPoint: { txHash: '0xe2fb199810d49a4d8beec56718ba2593b665db9d52299a0f9e6e75416d73ff5c', index: 2 },
   depType: 'code',
 }
 
