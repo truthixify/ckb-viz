@@ -51,7 +51,7 @@ export function DetailPanel({
     <aside
       role="dialog"
       aria-label="Cell detail"
-      className="fixed inset-y-0 right-0 z-30 flex w-[420px] max-w-full flex-col overflow-y-auto border-l border-border bg-panel-2"
+      className="fixed inset-y-0 right-0 z-30 flex w-[420px] max-w-full flex-col overflow-y-auto border-l border-border bg-panel-2 max-[560px]:w-full"
     >
       <div className="flex items-center justify-between border-b border-hairline px-5 py-4">
         <span className="meta-label">

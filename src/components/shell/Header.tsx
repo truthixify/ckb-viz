@@ -25,18 +25,18 @@ export function Header({
   onHome: () => void
 }) {
   return (
-    <header className="flex items-center justify-between gap-4 border-b border-hairline px-5 py-3.5">
+    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline px-5 py-3.5">
       <BrandMark onHome={onHome} />
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 max-[720px]:w-full">
         <form
           onSubmit={(e) => {
             e.preventDefault()
             onSubmit()
           }}
-          className="flex items-center gap-3"
+          className="flex items-center gap-3 max-[720px]:flex-1"
         >
-          <div className="flex h-9 w-[440px] max-w-[44vw] items-center gap-2 border border-border bg-inset px-3 focus-within:border-ember">
+          <div className="flex h-9 w-[440px] max-w-[44vw] items-center gap-2 border border-border bg-inset px-3 focus-within:border-ember max-[720px]:w-full max-[720px]:max-w-none">
             <input
               value={value}
               onChange={(e) => onChange(e.target.value)}

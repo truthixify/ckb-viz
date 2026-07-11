@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { usePrefersReducedMotion } from '@/app/motion'
+import { useIsNarrow, usePrefersReducedMotion } from '@/app/motion'
+import { clsx } from '@/app/clsx'
 import type { CapacityBreakdown, Cell, Transaction } from '@/domain/types'
 import { formatInt } from '@/domain/units'
 import { CountingCkb } from '../common/CountingCkb'
@@ -7,7 +8,7 @@ import { CellCard } from './CellCard'
 import { CellDepsLane } from './CellDepsLane'
 import { GroupedCell } from './GroupedCell'
 import { TransactionSpine } from './TransactionSpine'
-import { bezierPath, depCurve, distributeX, distributeY, type Connector } from './connectors'
+import { bezierPath, depCurve, distributeX, distributeY, vBezierPath, type Connector } from './connectors'
 import { cellId, depId, type CellSide } from './types'
 
 /* ─────────────────────────────────────────────────────────
@@ -57,6 +58,7 @@ export function FlowCanvas({
   onCopy: (text: string) => void
 }) {
   const reduced = usePrefersReducedMotion()
+  const narrow = useIsNarrow(860)
   const containerRef = useRef<HTMLDivElement>(null)
   const spineRef = useRef<HTMLElement | null>(null)
   const cellRefs = useRef<Map<string, HTMLElement>>(new Map())
@@ -74,8 +76,8 @@ export function FlowCanvas({
   const outputRows = toRows(transaction.outputs, 'output', outputsExpanded)
   const deps = transaction.cellDeps
 
-  const stateRef = useRef({ inputRows, outputRows, depCount: deps.length, depsOpen })
-  stateRef.current = { inputRows, outputRows, depCount: deps.length, depsOpen }
+  const stateRef = useRef({ inputRows, outputRows, depCount: deps.length, depsOpen, narrow })
+  stateRef.current = { inputRows, outputRows, depCount: deps.length, depsOpen, narrow }
 
   useEffect(() => {
     if (reduced) {
@@ -105,34 +107,53 @@ export function FlowCanvas({
     const spineRight = s.right - c.left
     const spineTop = s.top - c.top
     const spineBottom = spineTop + s.height
-    const { inputRows: inRows, outputRows: outRows, depCount, depsOpen: open } = stateRef.current
+    const { inputRows: inRows, outputRows: outRows, depCount, depsOpen: open, narrow: isNarrow } = stateRef.current
+    const cx = (r: DOMRect) => (r.left + r.right) / 2 - c.left
 
     const next: Connector[] = []
-    inRows.forEach((row, k) => {
-      const el = cellRefs.current.get(row.id)
-      if (!el) return
-      const r = el.getBoundingClientRect()
-      const start = { x: r.right - c.left, y: r.top - c.top + r.height / 2 }
-      const end = { x: spineLeft, y: distributeY(spineTop, s.height, inRows.length, k) }
-      next.push({ id: row.id, side: 'input', d: bezierPath(start, end) })
-    })
-    outRows.forEach((row, k) => {
-      const el = cellRefs.current.get(row.id)
-      if (!el) return
-      const r = el.getBoundingClientRect()
-      const start = { x: spineRight, y: distributeY(spineTop, s.height, outRows.length, k) }
-      const end = { x: r.left - c.left, y: r.top - c.top + r.height / 2 }
-      next.push({ id: row.id, side: 'output', d: bezierPath(start, end) })
-    })
-    if (open) {
-      for (let i = 0; i < depCount; i++) {
-        const el = cellRefs.current.get(depId(i))
-        if (!el) continue
+    if (isNarrow) {
+      // Stacked layout: inputs above the spine, outputs below — vertical curves.
+      inRows.forEach((row, k) => {
+        const el = cellRefs.current.get(row.id)
+        if (!el) return
         const r = el.getBoundingClientRect()
-        const depCx = (r.left + r.right) / 2 - c.left
-        const depTop = r.top - c.top
-        const sx = distributeX(spineLeft, s.width, depCount, i)
-        next.push({ id: depId(i), side: 'dep', d: depCurve(depCx, depTop, sx, spineBottom) })
+        const start = { x: cx(r), y: r.bottom - c.top }
+        const end = { x: distributeX(spineLeft, s.width, inRows.length, k), y: spineTop }
+        next.push({ id: row.id, side: 'input', d: vBezierPath(start, end) })
+      })
+      outRows.forEach((row, k) => {
+        const el = cellRefs.current.get(row.id)
+        if (!el) return
+        const r = el.getBoundingClientRect()
+        const start = { x: distributeX(spineLeft, s.width, outRows.length, k), y: spineBottom }
+        const end = { x: cx(r), y: r.top - c.top }
+        next.push({ id: row.id, side: 'output', d: vBezierPath(start, end) })
+      })
+    } else {
+      inRows.forEach((row, k) => {
+        const el = cellRefs.current.get(row.id)
+        if (!el) return
+        const r = el.getBoundingClientRect()
+        const start = { x: r.right - c.left, y: r.top - c.top + r.height / 2 }
+        const end = { x: spineLeft, y: distributeY(spineTop, s.height, inRows.length, k) }
+        next.push({ id: row.id, side: 'input', d: bezierPath(start, end) })
+      })
+      outRows.forEach((row, k) => {
+        const el = cellRefs.current.get(row.id)
+        if (!el) return
+        const r = el.getBoundingClientRect()
+        const start = { x: spineRight, y: distributeY(spineTop, s.height, outRows.length, k) }
+        const end = { x: r.left - c.left, y: r.top - c.top + r.height / 2 }
+        next.push({ id: row.id, side: 'output', d: bezierPath(start, end) })
+      })
+      if (open) {
+        for (let i = 0; i < depCount; i++) {
+          const el = cellRefs.current.get(depId(i))
+          if (!el) continue
+          const r = el.getBoundingClientRect()
+          const sx = distributeX(spineLeft, s.width, depCount, i)
+          next.push({ id: depId(i), side: 'dep', d: depCurve(cx(r), r.top - c.top, sx, spineBottom) })
+        }
       }
     }
     setConnectors((prev) => (sameConnectors(prev, next) ? prev : next))
@@ -141,7 +162,7 @@ export function FlowCanvas({
 
   useLayoutEffect(() => {
     measure()
-  }, [measure, inputsExpanded, outputsExpanded, depsOpen, transaction, stage])
+  }, [measure, inputsExpanded, outputsExpanded, depsOpen, transaction, stage, narrow])
 
   useLayoutEffect(() => {
     const ro = new ResizeObserver(() => measure())
@@ -158,17 +179,19 @@ export function FlowCanvas({
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-8">
-        <span className="mono flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-muted">
-          <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: 'var(--color-flow-in)' }} />
-          Inputs
-        </span>
-        <span className="meta-label justify-self-center">Transaction</span>
-        <span className="mono flex items-center justify-end gap-2 text-[10px] uppercase tracking-[0.16em] text-muted">
-          Outputs
-          <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: 'var(--color-flow-out)' }} />
-        </span>
-      </div>
+      {!narrow && (
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-8">
+          <span className="mono flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-muted">
+            <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: 'var(--color-flow-in)' }} />
+            Inputs
+          </span>
+          <span className="meta-label justify-self-center">Transaction</span>
+          <span className="mono flex items-center justify-end gap-2 text-[10px] uppercase tracking-[0.16em] text-muted">
+            Outputs
+            <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: 'var(--color-flow-out)' }} />
+          </span>
+        </div>
+      )}
 
       <div ref={containerRef} className="relative">
         {/* Connector overlay, behind the cell layer, drawn in at stage 1. */}
@@ -244,10 +267,17 @@ export function FlowCanvas({
           </div>
         )}
 
-        <div className="relative z-[2] grid grid-cols-[1fr_auto_1fr] items-center gap-8">
-          <Column align="start">
+        <div
+          className={clsx(
+            'relative z-[2]',
+            narrow
+              ? 'mx-auto flex w-full max-w-[440px] flex-col items-stretch gap-6'
+              : 'grid grid-cols-[1fr_auto_1fr] items-center gap-8',
+          )}
+        >
+          <Column align="start" narrow={narrow}>
             {inputRows.map((row, i) => (
-              <div key={row.id} className="vz-enter-l" style={{ animationDelay: cellDelay(i) }}>
+              <div key={row.id} className={clsx(narrow ? 'vz-enter' : 'vz-enter-l')} style={{ animationDelay: cellDelay(i) }}>
                 {row.grouped ? (
                   <GroupedCell
                     side="input"
@@ -276,7 +306,12 @@ export function FlowCanvas({
             ))}
           </Column>
 
-          <div className="vz-enter-scale relative w-[300px] max-w-[34vw] justify-self-center">
+          <div
+            className={clsx(
+              'vz-enter-scale relative',
+              narrow ? 'w-full' : 'w-[300px] max-w-[34vw] justify-self-center',
+            )}
+          >
             {stage >= 2 && !reduced && (
               <span
                 aria-hidden
@@ -292,9 +327,9 @@ export function FlowCanvas({
             />
           </div>
 
-          <Column align="end">
+          <Column align="end" narrow={narrow}>
             {outputRows.map((row, i) => (
-              <div key={row.id} className="vz-enter-r" style={{ animationDelay: cellDelay(i) }}>
+              <div key={row.id} className={clsx(narrow ? 'vz-enter' : 'vz-enter-r')} style={{ animationDelay: cellDelay(i) }}>
                 {row.grouped ? (
                   <GroupedCell
                     side="output"
@@ -338,21 +373,44 @@ export function FlowCanvas({
         </div>
 
         <div
-          className="vz-enter relative z-[2] mt-10 grid grid-cols-[1fr_auto_1fr] items-start gap-8 border-t border-hairline pt-5"
+          className={clsx(
+            'vz-enter relative z-[2] mt-10 border-t border-hairline pt-5',
+            narrow ? 'flex flex-col gap-5' : 'grid grid-cols-[1fr_auto_1fr] items-start gap-8',
+          )}
           style={{ animationDelay: '300ms' }}
         >
           <CapacityTotal label="Σ Input capacity" value={capacity.inputsTotal} tint="var(--color-flow-in)" align="start" />
-          <FeeTotal fee={capacity.fee} />
-          <CapacityTotal label="Σ Output capacity" value={capacity.outputsTotal} tint="var(--color-flow-out)" align="end" />
+          <FeeTotal fee={capacity.fee} center={!narrow} />
+          <CapacityTotal
+            label="Σ Output capacity"
+            value={capacity.outputsTotal}
+            tint="var(--color-flow-out)"
+            align={narrow ? 'start' : 'end'}
+          />
         </div>
       </div>
     </div>
   )
 }
 
-function Column({ align, children }: { align: 'start' | 'end'; children: React.ReactNode }) {
+function Column({
+  align,
+  narrow,
+  children,
+}: {
+  align: 'start' | 'end'
+  narrow: boolean
+  children: React.ReactNode
+}) {
   return (
-    <div className={`flex flex-col gap-5 ${align === 'end' ? 'items-end' : 'items-start'}`}>{children}</div>
+    <div
+      className={clsx(
+        'flex flex-col gap-5',
+        narrow ? 'w-full items-stretch' : align === 'end' ? 'items-end' : 'items-start',
+      )}
+    >
+      {children}
+    </div>
   )
 }
 
@@ -380,11 +438,11 @@ function CapacityTotal({
   )
 }
 
-function FeeTotal({ fee }: { fee: bigint | undefined }) {
+function FeeTotal({ fee, center }: { fee: bigint | undefined; center: boolean }) {
   return (
-    <div className="flex flex-col items-center gap-1.5 text-center">
+    <div className={clsx('flex flex-col gap-1.5', center ? 'items-center text-center' : 'items-start text-left')}>
       <span className="mono text-[10px] font-medium uppercase tracking-[0.16em] text-muted">Fee = In − Out</span>
-      <span className="flex items-baseline justify-center gap-1.5">
+      <span className={clsx('flex items-baseline gap-1.5', center && 'justify-center')}>
         <span className="mono text-[22px] font-medium tracking-tight text-ember">
           {fee === undefined ? '—' : <CountingCkb value={fee} duration={850} delay={300} />}
         </span>

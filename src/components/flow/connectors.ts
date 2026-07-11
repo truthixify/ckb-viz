@@ -15,6 +15,15 @@ export function distributeX(left: number, width: number, count: number, index: n
 }
 
 /**
+ * A vertical connector for the stacked narrow layout — vertical tangents at
+ * both ends, so the stream enters and leaves flat against a top/bottom edge.
+ */
+export function vBezierPath(start: Point, end: Point, curviness = 0.5): string {
+  const dy = Math.max(22, Math.abs(end.y - start.y) * curviness)
+  return `M ${round(start.x)} ${round(start.y)} C ${round(start.x)} ${round(start.y + dy)}, ${round(end.x)} ${round(end.y - dy)}, ${round(end.x)} ${round(end.y)}`
+}
+
+/**
  * A single cubic-bezier connector with horizontal tangents at both ends, so the
  * stream enters and leaves each anchor flat against the edge (SPEC §10.5).
  * Control points are offset by `curviness` of the horizontal span.

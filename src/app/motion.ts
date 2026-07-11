@@ -16,6 +16,22 @@ export function usePrefersReducedMotion(): boolean {
   return reduced
 }
 
+/** True when the viewport is narrower than `maxWidth` (mobile / tablet). */
+export function useIsNarrow(maxWidth = 860): boolean {
+  const query = `(max-width: ${maxWidth - 1}px)`
+  const [narrow, setNarrow] = useState(() =>
+    typeof window !== 'undefined' && !!window.matchMedia ? window.matchMedia(query).matches : false,
+  )
+  useEffect(() => {
+    const mq = window.matchMedia(query)
+    const onChange = () => setNarrow(mq.matches)
+    onChange()
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [query])
+  return narrow
+}
+
 /** A clock that re-renders on an interval, to keep relative times fresh. */
 export function useNow(intervalMs = 30_000): number {
   const [now, setNow] = useState(() => Date.now())
