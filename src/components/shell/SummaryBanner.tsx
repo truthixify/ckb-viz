@@ -1,6 +1,6 @@
 import { useNow } from '@/app/motion'
 import type { CapacityBreakdown, Transaction } from '@/domain/types'
-import { formatBytes, formatFee, formatInt, formatRelativeTime, formatTimestamp } from '@/domain/units'
+import { formatBytes, formatCkb, formatFee, formatInt, formatRelativeTime, formatTimestamp } from '@/domain/units'
 import type { DecodeResult } from '@/decode/decoder'
 import { StatusDot } from '../common/StatusDot'
 
@@ -51,6 +51,13 @@ export function SummaryBanner({
         <Reading label="Fee">
           <span className="text-ember">{formatFee(capacity.fee)}</span>
         </Reading>
+        {capacity.daoCompensation !== undefined && (
+          <Reading label="DAO interest">
+            <span style={{ color: 'var(--color-flow-out)' }}>
+              +{formatCkb(capacity.daoCompensation)} CKB
+            </span>
+          </Reading>
+        )}
         <Reading label="Size">{formatBytes(transaction.size)}</Reading>
         <Reading label="Cycles">
           {transaction.cyclesConsumed === undefined ? '—' : formatInt(transaction.cyclesConsumed)}

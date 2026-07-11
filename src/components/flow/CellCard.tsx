@@ -114,6 +114,13 @@ export function CellCard(props: CellCardProps) {
         {cell.type && <ScriptTag script={cell.type} category="type" />}
       </div>
 
+      {decoded?.imageDataUri && (
+        <img
+          src={decoded.imageDataUri}
+          alt={decoded.contentType ?? 'Spore content'}
+          className="h-16 w-16 border border-hairline bg-inset object-contain"
+        />
+      )}
       {decoded && decoded.kind === 'empty' ? (
         <span className="meta-label">No data</span>
       ) : decoded ? (

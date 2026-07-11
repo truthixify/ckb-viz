@@ -44,9 +44,24 @@ export interface SporeData {
   contentType: string
   contentByteLength: number
   clusterId?: string
+  /** A data: URI for renderable inline image content. */
+  imageDataUri?: string
 }
 
-/** Best-effort decode of SporeData { content_type, content, cluster_id? }. */
+const MAX_INLINE_IMAGE_BYTES = 2_000_000
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = ''
+  const chunk = 0x8000
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+  }
+  return btoa(binary)
+}
+
+/** Best-effort decode of SporeData { content_type, content, cluster_id? }. For
+ *  a renderable inline image, builds a data: URI (rendered via <img>, which does
+ *  not execute scripts, so even SVG content is safe). */
 export function decodeSporeData(dataHex: string): SporeData | null {
   try {
     const fields = readTableFields(dataHex)
@@ -54,6 +69,16 @@ export function decodeSporeData(dataHex: string): SporeData | null {
     const contentType = utf8(bytesFieldPayload(fields[0]!))
     const content = bytesFieldPayload(fields[1]!)
     const result: SporeData = { contentType, contentByteLength: content.length }
+
+    const mime = contentType.split(';')[0]?.trim().toLowerCase()
+    if (mime?.startsWith('image/') && content.length > 0 && content.length < MAX_INLINE_IMAGE_BYTES) {
+      try {
+        result.imageDataUri = `data:${mime};base64,${bytesToBase64(content)}`
+      } catch {
+        // leave the preview unset if encoding fails
+      }
+    }
+
     const clusterField = fields[2]
     if (clusterField && clusterField.length > 0) {
       let hex = '0x'

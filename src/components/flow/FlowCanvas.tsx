@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { useIsNarrow, usePrefersReducedMotion } from '@/app/motion'
 import { clsx } from '@/app/clsx'
 import type { CapacityBreakdown, Cell, Transaction } from '@/domain/types'
-import { formatFee } from '@/domain/units'
+import { formatCkb, formatFee } from '@/domain/units'
 import { CountingCkb } from '../common/CountingCkb'
 import { CellCard } from './CellCard'
 import { CellDepsLane } from './CellDepsLane'
@@ -380,7 +380,7 @@ export function FlowCanvas({
           style={{ animationDelay: '300ms' }}
         >
           <CapacityTotal label="Σ Input capacity" value={capacity.inputsTotal} tint="var(--color-flow-in)" align="start" />
-          <FeeTotal fee={capacity.fee} center={!narrow} />
+          <FeeTotal fee={capacity.fee} daoCompensation={capacity.daoCompensation} center={!narrow} />
           <CapacityTotal
             label="Σ Output capacity"
             value={capacity.outputsTotal}
@@ -438,11 +438,27 @@ function CapacityTotal({
   )
 }
 
-function FeeTotal({ fee, center }: { fee: bigint | undefined; center: boolean }) {
+function FeeTotal({
+  fee,
+  daoCompensation,
+  center,
+}: {
+  fee: bigint | undefined
+  daoCompensation: bigint | undefined
+  center: boolean
+}) {
+  const isDao = daoCompensation !== undefined
   return (
     <div className={clsx('flex flex-col gap-1.5', center ? 'items-center text-center' : 'items-start text-left')}>
-      <span className="mono text-[10px] font-medium uppercase tracking-[0.16em] text-muted">Fee = In − Out</span>
+      <span className="mono text-[10px] font-medium uppercase tracking-[0.16em] text-muted">
+        {isDao ? 'Fee · after DAO interest' : 'Fee = In − Out'}
+      </span>
       <span className="mono text-[22px] font-medium tracking-tight text-ember">{formatFee(fee)}</span>
+      {isDao && (
+        <span className="mono text-[11px]" style={{ color: 'var(--color-flow-out)' }}>
+          +{formatCkb(daoCompensation)} CKB interest
+        </span>
+      )}
     </div>
   )
 }

@@ -46,6 +46,7 @@ export function enrichTransaction(tx: Transaction, registry: ScriptRegistry): En
   const fee = tx.fee ?? (inputsTotal !== undefined ? inputsTotal - outputsTotal : undefined)
 
   const capacity: CapacityBreakdown = { inputsTotal, outputsTotal, fee }
+  if (tx.daoCompensation !== undefined) capacity.daoCompensation = tx.daoCompensation
   const summary = decodeTransaction(transaction, registry.network, registry)
 
   return { transaction, summary, capacity }

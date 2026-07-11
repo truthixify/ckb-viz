@@ -1,10 +1,45 @@
 import { describe, expect, it } from 'vitest'
 import { ScriptRegistry } from '@/registry/registry'
 import { EXAMPLES } from '@/source/bundled/examples'
+import { bytesToHex } from '@/domain/hex'
 import { decodeSince } from './since'
 import { decodeUdtAmount, formatUdtAmount } from './udt'
 import { decodeDaoCell } from './dao'
+import { decodeSporeData } from './molecule'
 import { enrichTransaction } from './enrich'
+
+/** Encode a molecule `Bytes` (4-byte LE length prefix + bytes). */
+function molBytes(bytes: Uint8Array): Uint8Array {
+  const out = new Uint8Array(4 + bytes.length)
+  new DataView(out.buffer).setUint32(0, bytes.length, true)
+  out.set(bytes, 4)
+  return out
+}
+/** Encode a molecule table from its (already-encoded) field slices. */
+function molTable(fields: Uint8Array[]): Uint8Array {
+  const header = 4 + fields.length * 4
+  const offsets: number[] = []
+  let pos = header
+  for (const f of fields) {
+    offsets.push(pos)
+    pos += f.length
+  }
+  const out = new Uint8Array(pos)
+  const dv = new DataView(out.buffer)
+  dv.setUint32(0, pos, true)
+  offsets.forEach((o, i) => dv.setUint32(4 + i * 4, o, true))
+  let p = header
+  for (const f of fields) {
+    out.set(f, p)
+    p += f.length
+  }
+  return out
+}
+function sporeData(contentType: string, content: Uint8Array): string {
+  return bytesToHex(
+    molTable([molBytes(new TextEncoder().encode(contentType)), molBytes(content), new Uint8Array(0)]),
+  )
+}
 
 const example = (id: string) => EXAMPLES.find((e) => e.id === id)!.transaction
 
@@ -46,6 +81,17 @@ describe('field decoders', () => {
     expect(formatUdtAmount(100_500000n, 6)).toBe('100.50')
     expect(formatUdtAmount(1000n, 6)).toBe('<0.01')
     expect(formatUdtAmount(12_345678n, 8)).toBe('0.12')
+  })
+
+  it('builds a data URI for an inline image Spore, but not for a DOB', () => {
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47])
+    const image = decodeSporeData(sporeData('image/png', png))
+    expect(image?.contentType).toBe('image/png')
+    expect(image?.imageDataUri).toBe('data:image/png;base64,' + btoa(String.fromCharCode(...png)))
+
+    const dob = decodeSporeData(sporeData('dob/0', new Uint8Array([1, 2, 3])))
+    expect(dob?.contentType).toBe('dob/0')
+    expect(dob?.imageDataUri).toBeUndefined()
   })
 
   it('classifies a DAO deposit vs withdrawal', () => {

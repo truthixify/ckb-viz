@@ -1,13 +1,16 @@
 import {
   ClientPublicMainnet,
   ClientPublicTestnet,
+  calcDaoProfit,
   type Client,
   type OutPoint as CccOutPoint,
   type Transaction as CccTransaction,
 } from '@ckb-ccc/core'
 import { EXAMPLE_KINDS, exampleSearch } from '@/app/examples'
+import { decodeDaoCell } from '@/decode/dao'
 import { VizError } from '@/domain/errors'
 import type { Cell, Network, OutPoint, Transaction } from '@/domain/types'
+import { deploymentFor } from '@/registry/codeHashes'
 import type { SourceCapabilities, TransactionSource } from '../TransactionSource'
 import { cellFromCcc, normalizeTransaction } from './normalize'
 
@@ -66,7 +69,7 @@ export class NodeSource implements TransactionSource {
       }
     }
 
-    return normalizeTransaction(
+    const normalized = normalizeTransaction(
       hash,
       tx,
       resp,
@@ -75,6 +78,46 @@ export class NodeSource implements TransactionSource {
       this.network,
       this.client.addressPrefix,
     )
+    await this.applyDaoCompensation(normalized)
+    return normalized
+  }
+
+  /**
+   * A Nervos DAO withdrawal releases the deposit plus compensation, so the
+   * outputs exceed the inputs and the raw fee = in − out is negative. Compute
+   * the compensation from the deposit and withdraw block headers (RFC0023) and
+   * correct the fee to the real (tiny) one, exposing the interest separately.
+   */
+  private async applyDaoCompensation(tx: Transaction): Promise<void> {
+    const daoCodeHash = deploymentFor('nervosDao', this.network)?.codeHash.toLowerCase()
+    if (!daoCodeHash) return
+
+    let compensation = 0n
+    for (const input of tx.inputs) {
+      const cell = input.cell
+      if (!cell || cell.type?.codeHash.toLowerCase() !== daoCodeHash) continue
+      const dao = decodeDaoCell(cell.data)
+      if (!dao || dao.phase !== 'withdraw' || dao.depositBlock === null) continue
+      try {
+        const creator = await this.client.getTransaction(input.outPoint.txHash)
+        const withdrawBlock = creator?.blockNumber
+        if (withdrawBlock == null) continue
+        const [depositHeader, withdrawHeader] = await Promise.all([
+          this.client.getHeaderByNumber(dao.depositBlock),
+          this.client.getHeaderByNumber(withdrawBlock),
+        ])
+        if (!depositHeader || !withdrawHeader) continue
+        const profitable = cell.capacity - cell.occupiedCapacity
+        compensation += calcDaoProfit(profitable, depositHeader, withdrawHeader)
+      } catch {
+        // skip an input we can't price
+      }
+    }
+
+    if (compensation > 0n) {
+      tx.daoCompensation = compensation
+      if (tx.fee !== undefined) tx.fee = tx.fee + compensation
+    }
   }
 
   /**
@@ -110,7 +153,7 @@ export class NodeSource implements TransactionSource {
     if (!kind) return null
     const search = exampleSearch(kind, this.network)
     if (!search) return null
-    const key = { ...search, scriptSearchMode: 'exact' as const }
+    const key = { ...search, scriptSearchMode: kind.searchMode }
     try {
       for await (const record of this.client.findTransactions(key, 'desc', 1)) {
         return record.txHash

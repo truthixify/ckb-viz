@@ -13,15 +13,19 @@ export interface ExampleKind {
   label: string
   scriptId: KnownScriptId
   scriptType: 'lock' | 'type'
-  /** The fixed args that make an exact search order by block. */
+  /** The args to search by — fixed (exact) or a prefix (`0x` = any). */
   args: string
+  /** Exact orders results by block (fixed-args scripts); prefix orders by
+   *  script args (for kinds like Spore whose args differ per cell). */
+  searchMode: 'exact' | 'prefix'
   networks: Network[]
 }
 
 export const EXAMPLE_KINDS: ExampleKind[] = [
-  { id: 'dao', label: 'Nervos DAO', scriptId: 'nervosDao', scriptType: 'type', args: '0x', networks: ['mainnet', 'testnet'] },
-  { id: 'usdi', label: 'USDI', scriptId: 'usdi', scriptType: 'type', args: '0xd591ebdc69626647e056e13345fd830c8b876bb06aa07ba610479eb77153ea9f', networks: ['mainnet'] },
-  { id: 'rusd', label: 'RUSD', scriptId: 'rusd', scriptType: 'type', args: '0x360c9d87b2824c357958c23e8878f686001e88e9527a08ea229e7d9ba7fe39a7', networks: ['mainnet'] },
+  { id: 'dao', label: 'Nervos DAO', scriptId: 'nervosDao', scriptType: 'type', args: '0x', searchMode: 'exact', networks: ['mainnet', 'testnet'] },
+  { id: 'usdi', label: 'USDI', scriptId: 'usdi', scriptType: 'type', args: '0xd591ebdc69626647e056e13345fd830c8b876bb06aa07ba610479eb77153ea9f', searchMode: 'exact', networks: ['mainnet'] },
+  { id: 'rusd', label: 'RUSD', scriptId: 'rusd', scriptType: 'type', args: '0x360c9d87b2824c357958c23e8878f686001e88e9527a08ea229e7d9ba7fe39a7', searchMode: 'exact', networks: ['mainnet'] },
+  { id: 'spore', label: 'Spore (DOB)', scriptId: 'spore', scriptType: 'type', args: '0x', searchMode: 'prefix', networks: ['mainnet', 'testnet'] },
 ]
 
 export interface ExampleSearch {

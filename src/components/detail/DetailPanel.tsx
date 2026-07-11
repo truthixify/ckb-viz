@@ -104,6 +104,13 @@ export function DetailPanel({
               {decoded.label}
             </span>
           )}
+          {decoded?.imageDataUri && (
+            <img
+              src={decoded.imageDataUri}
+              alt={decoded.contentType ?? 'Spore content'}
+              className="well max-h-72 w-full object-contain p-2"
+            />
+          )}
           {cell.data === '0x' ? (
             <span className="mono text-[11px] text-muted">No data</span>
           ) : (

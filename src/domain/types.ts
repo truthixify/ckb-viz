@@ -79,6 +79,8 @@ export interface DecodedData {
   contentByteLength?: number
   clusterId?: string
   clusterName?: string
+  /** A data: URI for a renderable inline Spore image. */
+  imageDataUri?: string
 }
 
 export interface Cell {
@@ -130,8 +132,11 @@ export interface Transaction {
   /** Milliseconds since epoch, from the including block's header. */
   timestamp?: number
   /** fee = Σ inputs.capacity − Σ outputs.capacity, shannons. Undefined when
-   *  inputs are unresolved. */
+   *  inputs are unresolved. For a Nervos DAO withdrawal, adjusted to the real
+   *  fee by adding back the compensation. */
   fee?: bigint
+  /** Nervos DAO compensation (interest) released by a withdrawal, shannons. */
+  daoCompensation?: bigint
   /** Serialized size in bytes. */
   size: number
   cyclesConsumed?: bigint
@@ -147,4 +152,5 @@ export interface CapacityBreakdown {
   inputsTotal: bigint | undefined
   outputsTotal: bigint
   fee: bigint | undefined
+  daoCompensation?: bigint
 }
