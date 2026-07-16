@@ -81,6 +81,8 @@ export interface DecodedData {
   clusterName?: string
   /** A data: URI for a renderable inline Spore image. */
   imageDataUri?: string
+  /** An https link when Spore content references off-chain data (IPFS / URL). */
+  externalUrl?: string
 }
 
 export interface Cell {

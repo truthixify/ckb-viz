@@ -70,6 +70,7 @@ export function decodeCellData(cell: Cell, network: Network, registry: ScriptReg
       }
       if (spore.clusterId) decoded.clusterId = spore.clusterId
       if (spore.imageDataUri) decoded.imageDataUri = spore.imageDataUri
+      if (spore.externalUrl) decoded.externalUrl = spore.externalUrl
       return decoded
     }
 

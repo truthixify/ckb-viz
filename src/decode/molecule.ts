@@ -46,9 +46,22 @@ export interface SporeData {
   clusterId?: string
   /** A data: URI for renderable inline image content. */
   imageDataUri?: string
+  /** An https link when the content references off-chain data (IPFS / URL). */
+  externalUrl?: string
 }
 
 const MAX_INLINE_IMAGE_BYTES = 2_000_000
+
+/** Resolve an off-chain content reference (ipfs://, a bare CID, or an http(s)
+ *  URL) to an https gateway URL, or null when it isn't a recognizable link. */
+function resolveExternalUrl(text: string): string | null {
+  const s = text.trim()
+  if (/^https?:\/\/\S+$/i.test(s)) return s
+  const ipfsMatch = s.match(/^ipfs:\/\/(?:ipfs\/)?([A-Za-z0-9]+)/)
+  if (ipfsMatch) return `https://ipfs.io/ipfs/${ipfsMatch[1]}`
+  if (/^(Qm[1-9A-HJ-NP-Za-km-z]{44}|bafy[A-Za-z0-9]+)$/.test(s)) return `https://ipfs.io/ipfs/${s}`
+  return null
+}
 
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = ''
@@ -71,7 +84,15 @@ export function decodeSporeData(dataHex: string): SporeData | null {
     const result: SporeData = { contentType, contentByteLength: content.length }
 
     const mime = contentType.split(';')[0]?.trim().toLowerCase()
-    if (mime?.startsWith('image/') && content.length > 0 && content.length < MAX_INLINE_IMAGE_BYTES) {
+    // Content may be a URI pointing off-chain (a link) or raw image bytes
+    // (inline, rendered). Detect a reference first so a short URL string is not
+    // mistaken for image bytes; otherwise render inline images directly.
+    const external =
+      (content.length > 0 && content.length < 4096 ? resolveExternalUrl(utf8(content)) : null) ??
+      resolveExternalUrl((contentType.split('ipfs=')[1] ?? '').split(/[;\s]/)[0] ?? '')
+    if (external) {
+      result.externalUrl = external
+    } else if (mime?.startsWith('image/') && content.length > 0 && content.length < MAX_INLINE_IMAGE_BYTES) {
       try {
         result.imageDataUri = `data:${mime};base64,${bytesToBase64(content)}`
       } catch {

@@ -94,6 +94,16 @@ describe('field decoders', () => {
     expect(dob?.imageDataUri).toBeUndefined()
   })
 
+  it('resolves an off-chain Spore content reference to a gateway link', () => {
+    const enc = (s: string) => new TextEncoder().encode(s)
+    const ipfs = decodeSporeData(sporeData('image/png', enc('ipfs://QmABC')))
+    expect(ipfs?.externalUrl).toBe('https://ipfs.io/ipfs/QmABC')
+    expect(ipfs?.imageDataUri).toBeUndefined()
+
+    const http = decodeSporeData(sporeData('image/svg+xml', enc('https://example.com/art.svg')))
+    expect(http?.externalUrl).toBe('https://example.com/art.svg')
+  })
+
   it('classifies a DAO deposit vs withdrawal', () => {
     expect(decodeDaoCell('0x0000000000000000')?.phase).toBe('deposit')
     expect(decodeDaoCell('0x40e2010000000000')).toEqual({ phase: 'withdraw', depositBlock: 123_456n })

@@ -123,6 +123,17 @@ export function DetailPanel({
               className="well max-h-72 w-full object-contain p-2"
             />
           )}
+          {decoded?.externalUrl && !decoded.imageDataUri && (
+            <a
+              href={decoded.externalUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="mono self-start border border-border px-3 py-2 text-[11px] uppercase tracking-[0.1em] text-bone-dim transition-colors hover:border-ember hover:text-ember"
+              title={decoded.externalUrl}
+            >
+              View content ↗ <span className="text-muted normal-case tracking-normal">(external)</span>
+            </a>
+          )}
           {cell.data === '0x' ? (
             <span className="mono text-[11px] text-muted">No data</span>
           ) : (
