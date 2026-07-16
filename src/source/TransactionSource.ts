@@ -1,3 +1,4 @@
+import type { AddressView } from '@/domain/address'
 import type { Network, OutPoint, Transaction } from '@/domain/types'
 
 /**
@@ -30,4 +31,8 @@ export interface TransactionSource {
 
   /** A recent real transaction of a curated kind (dao / token / …), or null. */
   findExampleTransaction(kindId: string): Promise<string | null>
+
+  /** An address's holdings (CKB + tokens) and recent transactions. Throws
+   *  VizError('unsupported') on a source that cannot resolve addresses. */
+  getAddressView(address: string): Promise<AddressView>
 }

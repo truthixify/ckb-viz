@@ -1,4 +1,5 @@
 import {
+  Address,
   ClientPublicMainnet,
   ClientPublicTestnet,
   calcDaoProfit,
@@ -7,12 +8,17 @@ import {
   type Transaction as CccTransaction,
 } from '@ckb-ccc/core'
 import { EXAMPLE_KINDS, exampleSearch } from '@/app/examples'
+import type { AddressView, TokenHolding } from '@/domain/address'
 import { decodeDaoCell } from '@/decode/dao'
+import { isUdtType } from '@/decode/data'
+import { lookupToken } from '@/decode/tokens'
+import { decodeUdtAmount } from '@/decode/udt'
 import { VizError } from '@/domain/errors'
 import type { Cell, Network, OutPoint, Transaction } from '@/domain/types'
 import { deploymentFor } from '@/registry/codeHashes'
+import { ScriptRegistry } from '@/registry/registry'
 import type { SourceCapabilities, TransactionSource } from '../TransactionSource'
-import { cellFromCcc, normalizeTransaction } from './normalize'
+import { cellFromCcc, normalizeTransaction, scriptFromCcc } from './normalize'
 
 /** Bound the input-resolution fan-out so a large tx can't hammer the endpoint. */
 const RESOLVE_CONCURRENCY = 8
@@ -20,6 +26,10 @@ const RESOLVE_CONCURRENCY = 8
 const FORWARD_SCAN_LIMIT = 40
 /** How many blocks down from the tip to scan for the latest transaction. */
 const LATEST_SCAN_DEPTH = 30n
+/** Cap the live-cell scan for token balances (CKB balance stays exact). */
+const ADDRESS_CELL_CAP = 500
+/** How many recent transactions to list for an address. */
+const ADDRESS_TX_LIMIT = 25
 
 /**
  * A live CKB node source over @ckb-ccc/core (SPEC §6.2-6.3). Fetches a
@@ -162,6 +172,97 @@ export class NodeSource implements TransactionSource {
       return null
     }
     return null
+  }
+
+  /**
+   * Resolve an address to its lock, then read its holdings and recent txs from
+   * the indexer. The CKB balance is exact (one `get_cells_capacity` call); token
+   * balances are summed from a bounded live-cell scan, flagged when capped.
+   */
+  async getAddressView(address: string): Promise<AddressView> {
+    let parsed: Address
+    try {
+      parsed = await Address.fromString(address, this.client)
+    } catch {
+      throw new VizError('invalid-hash', 'Not a valid address for this network')
+    }
+    const lockScript = parsed.script
+    const key = { script: lockScript, scriptType: 'lock' as const, scriptSearchMode: 'exact' as const }
+    const registry = new ScriptRegistry(this.network)
+    const lock = registry.annotate(scriptFromCcc(lockScript))
+
+    let ckbBalance = 0n
+    try {
+      ckbBalance = await this.client.getCellsCapacity(key)
+    } catch (error) {
+      throw new VizError(
+        'network',
+        'Could not reach the node',
+        error instanceof Error ? error.message : undefined,
+      )
+    }
+
+    const tokenMap = new Map<string, TokenHolding>()
+    let scannedCells = 0
+    let capped = false
+    try {
+      for await (const cell of this.client.findCells(key, 'desc', 100)) {
+        scannedCells++
+        const cccType = cell.cellOutput.type
+        if (cccType) {
+          const type = scriptFromCcc(cccType)
+          if (isUdtType(this.network, type, registry)) {
+            const amount = decodeUdtAmount(cell.outputData) ?? 0n
+            const id = `${type.codeHash}:${type.args}`.toLowerCase()
+            const existing = tokenMap.get(id)
+            if (existing) {
+              existing.amount += amount
+              existing.cellCount += 1
+            } else {
+              const info = lookupToken(this.network, type)
+              const holding: TokenHolding = { type, amount, cellCount: 1 }
+              if (info?.symbol) holding.symbol = info.symbol
+              if (info?.name) holding.name = info.name
+              if (info?.decimals !== undefined) holding.decimals = info.decimals
+              tokenMap.set(id, holding)
+            }
+          }
+        }
+        if (scannedCells >= ADDRESS_CELL_CAP) {
+          capped = true
+          break
+        }
+      }
+    } catch {
+      // partial token balances are still worth showing; CKB balance is exact
+    }
+
+    const recentTxs: { hash: string; blockNumber: bigint }[] = []
+    try {
+      for await (const record of this.client.findTransactionsByLock(lockScript, null, true, 'desc', 25)) {
+        recentTxs.push({ hash: record.txHash, blockNumber: record.blockNumber })
+        if (recentTxs.length >= ADDRESS_TX_LIMIT) break
+      }
+    } catch {
+      // recent txs are best-effort
+    }
+
+    const tokens = [...tokenMap.values()]
+      .filter((t) => t.amount > 0n)
+      .sort((a, b) => (a.symbol ? -1 : 1) - (b.symbol ? -1 : 1))
+
+    return {
+      holdings: {
+        address,
+        network: this.network,
+        lock,
+        ckbBalance,
+        scannedCells,
+        capped,
+        tokens,
+      },
+      recentTxs,
+    }
   }
 
   /**

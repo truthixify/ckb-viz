@@ -1,3 +1,4 @@
+import type { AddressView } from '@/domain/address'
 import type { Network, OutPoint, Transaction } from '@/domain/types'
 import type { SourceCapabilities, TransactionSource } from '@/source/TransactionSource'
 import { BundledSource } from '@/source/bundled/BundledSource'
@@ -47,6 +48,10 @@ class CompositeSource implements TransactionSource {
 
   async findExampleTransaction(kindId: string): Promise<string | null> {
     return (await this.getNode()).findExampleTransaction(kindId)
+  }
+
+  async getAddressView(address: string): Promise<AddressView> {
+    return (await this.getNode()).getAddressView(address)
   }
 }
 

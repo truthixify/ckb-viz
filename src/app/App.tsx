@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { Cell, Network } from '@/domain/types'
+import { looksLikeAddress } from '@/domain/address'
 import { isVizError } from '@/domain/errors'
 import { ScriptRegistry } from '@/registry/registry'
+import { AddressView } from '@/components/address/AddressView'
 import { CopyToast } from '@/components/common/CopyToast'
 import { SrSummary } from '@/components/common/SrSummary'
 import { DetailPanel } from '@/components/detail/DetailPanel'
@@ -31,6 +33,7 @@ const initialUrl = parseLocation()
 export function App() {
   const [network, setNetwork] = useState<Network>(initialUrl.network)
   const [path, setPath] = useState<string[]>(initialUrl.path)
+  const [address, setAddress] = useState<string | null>(initialUrl.address)
   const [inputValue, setInputValue] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -40,10 +43,11 @@ export function App() {
   useEffect(() => {
     const onPop = (e: PopStateEvent) => {
       fromPopState.current = true
-      const state = e.state as { path?: string[]; network?: Network } | null
-      const next = state?.path && state?.network ? state : parseLocation()
+      const state = e.state as { path?: string[]; network?: Network; address?: string | null } | null
+      const next = state?.network ? state : parseLocation()
       setNetwork(next.network ?? 'mainnet')
       setPath(next.path ?? [])
+      setAddress(next.address ?? null)
       setSelectedId(null)
     }
     window.addEventListener('popstate', onPop)
@@ -54,31 +58,41 @@ export function App() {
   const registry = useMemo(() => new ScriptRegistry(network), [network])
 
   // The tool opens on the network's latest transaction until the user navigates.
+  // An address view suspends the tx flow.
   const latestQuery = useQuery({
     queryKey: ['latest', network],
     queryFn: () => source.getLatestTransactionHash(),
     staleTime: 15_000,
     retry: 1,
+    enabled: address === null,
   })
-  const currentHash = path.length > 0 ? path[path.length - 1]! : (latestQuery.data ?? null)
+  const currentHash =
+    address !== null ? null : path.length > 0 ? path[path.length - 1]! : (latestQuery.data ?? null)
   const txQuery = useTransaction(source, registry, currentHash)
   const enriched = txQuery.data
 
-  // Reflect the displayed transaction in the URL (shareable), carrying the
-  // lineage path in history state so back/forward restores the full walk.
+  const addressQuery = useQuery({
+    queryKey: ['address', network, address],
+    queryFn: () => source.getAddressView(address!),
+    enabled: address !== null,
+    retry: (count, error) => !isVizError(error) && count < 2,
+  })
+
+  // Reflect the displayed transaction or address in the URL (shareable),
+  // carrying the lineage path in history state so back/forward restores it.
   const isFirstSync = useRef(true)
   useEffect(() => {
-    const url = buildUrl(network, currentHash)
-    const state = { path, network }
+    const url = buildUrl(network, currentHash, address)
+    const state = { path, network, address }
     if (fromPopState.current) {
       fromPopState.current = false
-    } else if (isFirstSync.current || path.length === 0) {
+    } else if (isFirstSync.current || (path.length === 0 && address === null)) {
       isFirstSync.current = false
       window.history.replaceState(state, '', url)
     } else {
       window.history.pushState(state, '', url)
     }
-  }, [network, currentHash, path])
+  }, [network, currentHash, path, address])
 
   useEffect(() => {
     if (!toast) return
@@ -92,12 +106,28 @@ export function App() {
   }, [])
 
   const loadHash = useCallback((hash: string) => {
+    setAddress(null)
     setPath([hash])
     setSelectedId(null)
     setInputValue('')
   }, [])
 
+  const loadAddress = useCallback((addr: string) => {
+    setAddress(addr)
+    setPath([])
+    setSelectedId(null)
+    setInputValue('')
+  }, [])
+
+  const onSubmit = useCallback(() => {
+    const value = inputValue.trim()
+    if (!value) return
+    if (looksLikeAddress(value)) loadAddress(value)
+    else loadHash(value)
+  }, [inputValue, loadAddress, loadHash])
+
   const onHome = useCallback(() => {
+    setAddress(null)
     setPath([])
     setSelectedId(null)
     setInputValue('')
@@ -105,6 +135,7 @@ export function App() {
 
   const onNetwork = useCallback((next: Network) => {
     setNetwork(next)
+    setAddress(null)
     setPath([])
     setSelectedId(null)
     setInputValue('')
@@ -169,7 +200,7 @@ export function App() {
       <Header
         value={inputValue}
         onChange={setInputValue}
-        onSubmit={() => inputValue.trim() && loadHash(inputValue.trim())}
+        onSubmit={onSubmit}
         onClear={() => setInputValue('')}
         network={network}
         onNetwork={onNetwork}
@@ -179,7 +210,15 @@ export function App() {
 
       <main className="flex-1 overflow-x-auto px-4 py-8 min-[560px]:px-6 min-[560px]:py-10">
         <div className="mx-auto flex max-w-[1180px] flex-col gap-8">
-          {currentHash === null ? (
+          {address !== null ? (
+            addressQuery.isLoading ? (
+              <LoadingState />
+            ) : addressQuery.isError ? (
+              <ErrorState error={addressQuery.error} />
+            ) : addressQuery.data ? (
+              <AddressView data={addressQuery.data} onCopy={onCopy} onOpenTx={loadHash} />
+            ) : null
+          ) : currentHash === null ? (
             latestQuery.isLoading ? (
               <LoadingState />
             ) : latestQuery.isError ? (

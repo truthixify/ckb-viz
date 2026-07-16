@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   ckb,
   formatCkb,
+  formatCompact,
   formatFee,
   ckbParts,
   truncateHash,
@@ -9,6 +10,7 @@ import {
   isValidTxHash,
   formatRelativeTime,
 } from './units'
+import { looksLikeAddress, addressNetwork } from './address'
 
 describe('ckb / shannon conversion', () => {
   it('parses whole and fractional CKB exactly', () => {
@@ -52,6 +54,27 @@ describe('hash helpers', () => {
     expect(isValidTxHash('0x' + 'a'.repeat(64))).toBe(true)
     expect(isValidTxHash('0x' + 'a'.repeat(63))).toBe(false)
     expect(isValidTxHash('deadbeef')).toBe(false)
+  })
+})
+
+describe('compact numbers', () => {
+  it('abbreviates large integers, keeps small ones full', () => {
+    expect(formatCompact(14_713n)).toBe('14,713')
+    expect(formatCompact(100_000_000_000n)).toBe('100B')
+    expect(formatCompact(10_000_028_114_859n)).toBe('10T')
+    expect(formatCompact(329_507_542_775_230n)).toBe('329.5T')
+    expect(formatCompact(13_002_351_223_921_320n)).toBe('13Q')
+  })
+})
+
+describe('address detection', () => {
+  const mainnet = 'ckb1qrgqep8saj8agswr30pls73hra28ry8jlnlc3ejzh3dl2ju7xxpjxqgqqyq4fjpuy4eygc7q57mna0neuskzs3rx8gxmxqjw'
+  it('recognizes ckb/ckt addresses and their network', () => {
+    expect(looksLikeAddress(mainnet)).toBe(true)
+    expect(addressNetwork(mainnet)).toBe('mainnet')
+    expect(addressNetwork('ckt1qq...')).toBe('testnet')
+    expect(looksLikeAddress('0x' + 'a'.repeat(64))).toBe(false)
+    expect(looksLikeAddress('not an address')).toBe(false)
   })
 })
 

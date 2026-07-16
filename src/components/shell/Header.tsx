@@ -55,8 +55,8 @@ export function Header({
             onChange={(e) => onChange(e.target.value)}
             spellCheck={false}
             autoComplete="off"
-            placeholder="Paste a transaction hash…"
-            aria-label="Transaction hash"
+            placeholder="Paste a transaction hash or address…"
+            aria-label="Transaction hash or address"
             className="mono min-w-0 flex-1 bg-transparent text-[13px] text-bone placeholder:text-muted focus:outline-none"
           />
           {value && (

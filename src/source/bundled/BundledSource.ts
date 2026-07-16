@@ -1,3 +1,4 @@
+import type { AddressView } from '@/domain/address'
 import type { Network, OutPoint, Transaction } from '@/domain/types'
 import { VizError } from '@/domain/errors'
 import type { SourceCapabilities, TransactionSource } from '../TransactionSource'
@@ -49,5 +50,9 @@ export class BundledSource implements TransactionSource {
   findExampleTransaction(kindId: string): Promise<string | null> {
     const exampleId = kindId === 'dao' ? 'nervos-dao' : kindId === 'usdi' || kindId === 'rusd' ? 'xudt' : kindId
     return Promise.resolve(EXAMPLES.find((e) => e.id === exampleId)?.transaction.hash ?? null)
+  }
+
+  getAddressView(_address: string): Promise<AddressView> {
+    return Promise.reject(new VizError('unsupported', 'Address lookup needs a live node'))
   }
 }

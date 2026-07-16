@@ -76,6 +76,29 @@ export function formatInt(value: bigint | number): string {
   return (negative ? '-' : '') + groupThousands(abs.toString())
 }
 
+const COMPACT_SUFFIXES = ['', 'K', 'M', 'B', 'T', 'Q']
+
+/** Abbreviate a large integer for display: 10_000_028_114_859n -> "10.0T".
+ *  Small values (< 100,000) are shown in full with separators. Beyond the named
+ *  suffixes, falls back to scientific notation. */
+export function formatCompact(value: bigint): string {
+  const negative = value < 0n
+  const abs = negative ? -value : value
+  const sign = negative ? '-' : ''
+  if (abs < 100_000n) return sign + groupThousands(abs.toString())
+
+  const digits = abs.toString().length
+  const tier = Math.min(Math.floor((digits - 1) / 3), COMPACT_SUFFIXES.length - 1)
+  if (tier >= COMPACT_SUFFIXES.length - 1 && digits > 18) {
+    return `${sign}${abs.toString()[0]}.${abs.toString().slice(1, 3)}e${digits - 1}`
+  }
+  const scale = 10n ** BigInt(tier * 3)
+  const whole = abs / scale
+  const remainder = (abs % scale) / (scale / 100n || 1n)
+  const frac = remainder.toString().padStart(2, '0').replace(/0+$/, '')
+  return `${sign}${groupThousands(whole.toString())}${frac ? '.' + frac : ''}${COMPACT_SUFFIXES[tier]}`
+}
+
 /** Format a byte count: "903 B", "2.1 KB". */
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
