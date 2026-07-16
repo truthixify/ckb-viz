@@ -7,6 +7,7 @@ import { CopyToast } from '@/components/common/CopyToast'
 import { SrSummary } from '@/components/common/SrSummary'
 import { DetailPanel } from '@/components/detail/DetailPanel'
 import { FlowCanvas } from '@/components/flow/FlowCanvas'
+import { RawJsonView } from '@/components/flow/RawJsonView'
 import { TransactionExtras } from '@/components/flow/TransactionExtras'
 import { Breadcrumb } from '@/components/lineage/Breadcrumb'
 import { Header } from '@/components/shell/Header'
@@ -217,6 +218,7 @@ export function App() {
                 onCopy={onCopy}
               />
               <TransactionExtras transaction={enriched.transaction} onCopy={onCopy} />
+              <RawJsonView transaction={enriched.transaction} onCopy={onCopy} />
             </>
           ) : null}
         </div>
