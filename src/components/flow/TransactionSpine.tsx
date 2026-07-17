@@ -13,25 +13,37 @@ export function TransactionSpine({
   registerRef,
   onCopy,
   simulated = false,
+  failed = false,
 }: {
   transaction: Transaction
   capacity: CapacityBreakdown
   registerRef: (el: HTMLElement | null) => void
   onCopy: (text: string) => void
   simulated?: boolean
+  failed?: boolean
 }) {
+  const accent = failed ? 'var(--color-alarm)' : 'var(--color-ember)'
   return (
     <div
       ref={registerRef}
-      className="flex w-full flex-col gap-5 border border-[color:var(--color-ember)] bg-panel px-6 py-5"
-      style={{ backgroundImage: 'linear-gradient(var(--color-ember-well), var(--color-ember-well))', backgroundSize: '100% 3px', backgroundRepeat: 'no-repeat' }}
+      className="flex w-full flex-col gap-5 border bg-panel px-6 py-5"
+      style={{
+        borderColor: accent,
+        backgroundImage: failed
+          ? 'none'
+          : 'linear-gradient(var(--color-ember-well), var(--color-ember-well))',
+        backgroundSize: '100% 3px',
+        backgroundRepeat: 'no-repeat',
+      }}
     >
       <div className="flex flex-col gap-2">
-        <span className="mono text-[9px] uppercase tracking-[0.18em] text-[color:var(--color-ember)]">
-          Transaction
+        <span className="mono text-[9px] uppercase tracking-[0.18em]" style={{ color: accent }}>
+          {failed ? 'Transaction · rejected' : 'Transaction'}
         </span>
         {simulated || !transaction.hash ? (
-          <span className="mono self-start text-[15px] text-bone-dim">Simulated · not yet on-chain</span>
+          <span className="mono self-start text-[15px] text-bone-dim">
+            {failed ? 'Rejected · not accepted' : 'Simulated · not yet on-chain'}
+          </span>
         ) : (
           <button
             type="button"
@@ -46,7 +58,7 @@ export function TransactionSpine({
 
       <dl className="flex flex-col gap-3">
         <Row label="Fee">
-          <span className="mono text-[13px] text-[color:var(--color-ember)]">
+          <span className="mono text-[13px]" style={{ color: accent }}>
             {formatFee(capacity.fee)}
           </span>
         </Row>

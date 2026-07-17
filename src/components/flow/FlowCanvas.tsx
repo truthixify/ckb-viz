@@ -51,6 +51,7 @@ export function FlowCanvas({
   onSelectCell,
   onCopy,
   simulated = false,
+  failed = false,
 }: {
   transaction: Transaction
   capacity: CapacityBreakdown
@@ -58,6 +59,9 @@ export function FlowCanvas({
   onSelectCell: (cell: Cell, id: string) => void
   onCopy: (text: string) => void
   simulated?: boolean
+  /** A rejected simulation: value flows into the spine and halts — nothing
+   *  emerges — and the flow reads alarm-red instead of ember. */
+  failed?: boolean
 }) {
   const reduced = usePrefersReducedMotion()
   const narrow = useIsNarrow(860)
@@ -225,17 +229,22 @@ export function FlowCanvas({
                 />
               )
             }
+            // Failed: value never reaches the outputs, so output connectors are
+            // dashed and faint (they didn't happen); inputs stay solid but red.
+            const outputHalted = failed && conn.side === 'output'
+            const base = failed ? 0.42 : 0.62
             return (
               <path
                 key={conn.id}
                 d={conn.d}
                 pathLength={1}
                 className={reduced ? undefined : 'connector'}
-                stroke="var(--color-ember)"
+                stroke={failed ? 'var(--color-alarm)' : 'var(--color-ember)'}
                 strokeWidth={isActive ? 2.4 : 1.8}
                 strokeLinecap="round"
+                strokeDasharray={outputHalted ? '2 5' : undefined}
                 style={{
-                  opacity: isActive ? 1 : dimmed ? 0.1 : 0.62,
+                  opacity: isActive ? 1 : dimmed ? 0.1 : outputHalted ? 0.18 : base,
                   transition: 'opacity 140ms var(--ease-instrument), stroke-width 140ms var(--ease-instrument)',
                 }}
               />
@@ -243,29 +252,35 @@ export function FlowCanvas({
           })}
         </svg>
 
-        {/* Traveling flow pulses: inputs converge into the spine, then the spine
-            fires and outputs diverge — sequenced, not simultaneous. */}
+        {/* Traveling flow pulses. Valid: inputs converge into the spine, then it
+            fires and outputs diverge. Failed: value converges into the spine and
+            stops — no output pulses emerge, so the rejection reads visually. */}
         {stage >= 2 && !reduced && (
           <div className="pointer-events-none absolute inset-0 overflow-visible" style={{ zIndex: 1 }}>
-            {connectors.map((conn) => {
-              const isActive = activeId === conn.id
-              const dimmed = activeId !== null && !isActive
-              return (
-                <span
-                  key={`pulse-${conn.id}`}
-                  className="absolute inset-0"
-                  style={{ opacity: dimmed ? 0.12 : isActive ? 1 : 0.8 }}
-                >
+            {connectors
+              .filter((conn) => !(failed && conn.side === 'output'))
+              .map((conn) => {
+                const isActive = activeId === conn.id
+                const dimmed = activeId !== null && !isActive
+                const color =
+                  conn.side === 'dep'
+                    ? 'var(--color-dep)'
+                    : failed
+                      ? 'var(--color-alarm)'
+                      : 'var(--color-ember)'
+                return (
                   <span
-                    className={`flow-pulse ${conn.side === 'output' ? 'flow-pulse-out' : 'flow-pulse-in'}`}
-                    style={{
-                      offsetPath: `path("${conn.d}")`,
-                      backgroundColor: conn.side === 'dep' ? 'var(--color-dep)' : 'var(--color-ember)',
-                    }}
-                  />
-                </span>
-              )
-            })}
+                    key={`pulse-${conn.id}`}
+                    className="absolute inset-0"
+                    style={{ opacity: dimmed ? 0.12 : isActive ? 1 : 0.8 }}
+                  >
+                    <span
+                      className={`flow-pulse ${conn.side === 'output' ? 'flow-pulse-out' : 'flow-pulse-in'}`}
+                      style={{ offsetPath: `path("${conn.d}")`, backgroundColor: color }}
+                    />
+                  </span>
+                )
+              })}
           </div>
         )}
 
@@ -314,7 +329,7 @@ export function FlowCanvas({
               narrow ? 'w-full' : 'w-[300px] max-w-[34vw] justify-self-center',
             )}
           >
-            {stage >= 2 && !reduced && (
+            {stage >= 2 && !reduced && !failed && (
               <span
                 aria-hidden
                 className="spine-beat pointer-events-none absolute inset-0"
@@ -324,6 +339,7 @@ export function FlowCanvas({
             <TransactionSpine
               transaction={transaction}
               capacity={capacity}
+              failed={failed}
               registerRef={(el) => (spineRef.current = el)}
               onCopy={onCopy}
               simulated={simulated}

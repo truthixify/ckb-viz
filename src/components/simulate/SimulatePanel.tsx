@@ -144,6 +144,7 @@ export function SimulatePanel({
               onSelectCell={() => {}}
               onCopy={onCopy}
               simulated
+              failed={result.verdict === 'invalid'}
             />
           )}
         </>
