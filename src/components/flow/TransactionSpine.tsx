@@ -12,11 +12,13 @@ export function TransactionSpine({
   capacity,
   registerRef,
   onCopy,
+  simulated = false,
 }: {
   transaction: Transaction
   capacity: CapacityBreakdown
   registerRef: (el: HTMLElement | null) => void
   onCopy: (text: string) => void
+  simulated?: boolean
 }) {
   return (
     <div
@@ -28,14 +30,18 @@ export function TransactionSpine({
         <span className="mono text-[9px] uppercase tracking-[0.18em] text-[color:var(--color-ember)]">
           Transaction
         </span>
-        <button
-          type="button"
-          className="mono copyable self-start text-[15px] text-bone"
-          onClick={() => onCopy(transaction.hash)}
-          title="Copy transaction hash"
-        >
-          {truncateHash(transaction.hash, 8, 8)}
-        </button>
+        {simulated || !transaction.hash ? (
+          <span className="mono self-start text-[15px] text-bone-dim">Simulated · not yet on-chain</span>
+        ) : (
+          <button
+            type="button"
+            className="mono copyable self-start text-[15px] text-bone"
+            onClick={() => onCopy(transaction.hash)}
+            title="Copy transaction hash"
+          >
+            {truncateHash(transaction.hash, 8, 8)}
+          </button>
+        )}
       </div>
 
       <dl className="flex flex-col gap-3">

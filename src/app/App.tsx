@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { Cell, Network } from '@/domain/types'
-import { looksLikeAddress } from '@/domain/address'
+import { addressNetwork, looksLikeAddress } from '@/domain/address'
 import { isVizError } from '@/domain/errors'
+import { isValidTxHash } from '@/domain/units'
 import { ScriptRegistry } from '@/registry/registry'
 import { AddressView } from '@/components/address/AddressView'
+import { SimulatePanel } from '@/components/simulate/SimulatePanel'
 import { CopyToast } from '@/components/common/CopyToast'
 import { SrSummary } from '@/components/common/SrSummary'
 import { DetailPanel } from '@/components/detail/DetailPanel'
@@ -34,6 +36,7 @@ export function App() {
   const [network, setNetwork] = useState<Network>(initialUrl.network)
   const [path, setPath] = useState<string[]>(initialUrl.path)
   const [address, setAddress] = useState<string | null>(initialUrl.address)
+  const [simulate, setSimulate] = useState<boolean>(initialUrl.simulate)
   const [inputValue, setInputValue] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -43,11 +46,14 @@ export function App() {
   useEffect(() => {
     const onPop = (e: PopStateEvent) => {
       fromPopState.current = true
-      const state = e.state as { path?: string[]; network?: Network; address?: string | null } | null
+      const state = e.state as
+        | { path?: string[]; network?: Network; address?: string | null; simulate?: boolean }
+        | null
       const next = state?.network ? state : parseLocation()
       setNetwork(next.network ?? 'mainnet')
       setPath(next.path ?? [])
       setAddress(next.address ?? null)
+      setSimulate(Boolean(next.simulate))
       setSelectedId(null)
     }
     window.addEventListener('popstate', onPop)
@@ -64,10 +70,14 @@ export function App() {
     queryFn: () => source.getLatestTransactionHash(),
     staleTime: 15_000,
     retry: 1,
-    enabled: address === null,
+    enabled: address === null && !simulate,
   })
   const currentHash =
-    address !== null ? null : path.length > 0 ? path[path.length - 1]! : (latestQuery.data ?? null)
+    address !== null || simulate
+      ? null
+      : path.length > 0
+        ? path[path.length - 1]!
+        : (latestQuery.data ?? null)
   const txQuery = useTransaction(source, registry, currentHash)
   const enriched = txQuery.data
 
@@ -82,17 +92,17 @@ export function App() {
   // carrying the lineage path in history state so back/forward restores it.
   const isFirstSync = useRef(true)
   useEffect(() => {
-    const url = buildUrl(network, currentHash, address)
-    const state = { path, network, address }
+    const url = buildUrl(network, currentHash, address, simulate)
+    const state = { path, network, address, simulate }
     if (fromPopState.current) {
       fromPopState.current = false
-    } else if (isFirstSync.current || (path.length === 0 && address === null)) {
+    } else if (isFirstSync.current || (path.length === 0 && address === null && !simulate)) {
       isFirstSync.current = false
       window.history.replaceState(state, '', url)
     } else {
       window.history.pushState(state, '', url)
     }
-  }, [network, currentHash, path, address])
+  }, [network, currentHash, path, address, simulate])
 
   useEffect(() => {
     if (!toast) return
@@ -107,13 +117,27 @@ export function App() {
 
   const loadHash = useCallback((hash: string) => {
     setAddress(null)
+    setSimulate(false)
     setPath([hash])
     setSelectedId(null)
     setInputValue('')
   }, [])
 
   const loadAddress = useCallback((addr: string) => {
+    // The prefix determines the network unambiguously — switch to it so a
+    // ckt… address opens on testnet even from mainnet, and vice versa.
+    const net = addressNetwork(addr)
+    if (net) setNetwork(net)
     setAddress(addr)
+    setSimulate(false)
+    setPath([])
+    setSelectedId(null)
+    setInputValue('')
+  }, [])
+
+  const openSimulate = useCallback(() => {
+    setSimulate(true)
+    setAddress(null)
     setPath([])
     setSelectedId(null)
     setInputValue('')
@@ -123,11 +147,13 @@ export function App() {
     const value = inputValue.trim()
     if (!value) return
     if (looksLikeAddress(value)) loadAddress(value)
-    else loadHash(value)
+    else if (isValidTxHash(value)) loadHash(value)
+    else setToast('Enter a transaction hash (0x + 64 hex) or a ckb/ckt address')
   }, [inputValue, loadAddress, loadHash])
 
   const onHome = useCallback(() => {
     setAddress(null)
+    setSimulate(false)
     setPath([])
     setSelectedId(null)
     setInputValue('')
@@ -136,6 +162,7 @@ export function App() {
   const onNetwork = useCallback((next: Network) => {
     setNetwork(next)
     setAddress(null)
+    setSimulate(false)
     setPath([])
     setSelectedId(null)
     setInputValue('')
@@ -206,11 +233,19 @@ export function App() {
         onNetwork={onNetwork}
         onHome={onHome}
       />
-      <ExamplesBar network={network} finding={findingExample} onPick={pickExample} />
+      <ExamplesBar
+        network={network}
+        finding={findingExample}
+        onPick={pickExample}
+        simulate={simulate}
+        onSimulate={openSimulate}
+      />
 
       <main className="flex-1 overflow-x-auto px-4 py-8 min-[560px]:px-6 min-[560px]:py-10">
         <div className="mx-auto flex max-w-[1180px] flex-col gap-8">
-          {address !== null ? (
+          {simulate ? (
+            <SimulatePanel source={source} network={network} onCopy={onCopy} onOpenTx={loadHash} />
+          ) : address !== null ? (
             addressQuery.isLoading ? (
               <LoadingState />
             ) : addressQuery.isError ? (

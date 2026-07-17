@@ -50,12 +50,14 @@ export function FlowCanvas({
   selectedId,
   onSelectCell,
   onCopy,
+  simulated = false,
 }: {
   transaction: Transaction
   capacity: CapacityBreakdown
   selectedId: string | null
   onSelectCell: (cell: Cell, id: string) => void
   onCopy: (text: string) => void
+  simulated?: boolean
 }) {
   const reduced = usePrefersReducedMotion()
   const narrow = useIsNarrow(860)
@@ -324,6 +326,7 @@ export function FlowCanvas({
               capacity={capacity}
               registerRef={(el) => (spineRef.current = el)}
               onCopy={onCopy}
+              simulated={simulated}
             />
           </div>
 

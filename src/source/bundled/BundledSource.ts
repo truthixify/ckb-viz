@@ -1,4 +1,5 @@
 import type { AddressView } from '@/domain/address'
+import type { SimulationResult } from '@/domain/simulation'
 import type { Network, OutPoint, Transaction } from '@/domain/types'
 import { VizError } from '@/domain/errors'
 import type { SourceCapabilities, TransactionSource } from '../TransactionSource'
@@ -54,5 +55,13 @@ export class BundledSource implements TransactionSource {
 
   getAddressView(_address: string): Promise<AddressView> {
     return Promise.reject(new VizError('unsupported', 'Address lookup needs a live node'))
+  }
+
+  simulateTransaction(_rawTx: unknown): Promise<SimulationResult> {
+    return Promise.reject(new VizError('unsupported', 'Simulation needs a live node'))
+  }
+
+  getSimulationExample(): Promise<string | null> {
+    return Promise.resolve(null)
   }
 }

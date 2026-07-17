@@ -1,4 +1,5 @@
 import type { AddressView } from '@/domain/address'
+import type { SimulationResult } from '@/domain/simulation'
 import type { Network, OutPoint, Transaction } from '@/domain/types'
 
 /**
@@ -35,4 +36,11 @@ export interface TransactionSource {
   /** An address's holdings (CKB + tokens) and recent transactions. Throws
    *  VizError('unsupported') on a source that cannot resolve addresses. */
   getAddressView(address: string): Promise<AddressView>
+
+  /** Simulate a raw transaction against current chain state (validity + cycles,
+   *  or the failing script). Throws VizError('unsupported') on a bare source. */
+  simulateTransaction(rawTx: unknown): Promise<SimulationResult>
+
+  /** A real pending transaction's raw JSON to prefill the simulator, or null. */
+  getSimulationExample(): Promise<string | null>
 }

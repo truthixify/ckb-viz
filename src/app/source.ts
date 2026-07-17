@@ -1,4 +1,5 @@
 import type { AddressView } from '@/domain/address'
+import type { SimulationResult } from '@/domain/simulation'
 import type { Network, OutPoint, Transaction } from '@/domain/types'
 import type { SourceCapabilities, TransactionSource } from '@/source/TransactionSource'
 import { BundledSource } from '@/source/bundled/BundledSource'
@@ -52,6 +53,14 @@ class CompositeSource implements TransactionSource {
 
   async getAddressView(address: string): Promise<AddressView> {
     return (await this.getNode()).getAddressView(address)
+  }
+
+  async simulateTransaction(rawTx: unknown): Promise<SimulationResult> {
+    return (await this.getNode()).simulateTransaction(rawTx)
+  }
+
+  async getSimulationExample(): Promise<string | null> {
+    return (await this.getNode()).getSimulationExample()
   }
 }
 

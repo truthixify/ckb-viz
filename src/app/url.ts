@@ -13,24 +13,35 @@ export interface UrlState {
   network: Network
   path: string[]
   address: string | null
+  simulate: boolean
 }
 
 export function parseLocation(): UrlState {
   const url = new URL(window.location.href)
   const network: Network = url.searchParams.get('network') === 'testnet' ? 'testnet' : 'mainnet'
 
+  if (url.pathname === '/simulate') {
+    return { network, path: [], address: null, simulate: true }
+  }
+
   const addrMatch = url.pathname.match(/^\/address\/(ck[bt]1[0-9a-z]+)$/i)
   if (addrMatch?.[1] && looksLikeAddress(addrMatch[1])) {
-    return { network, path: [], address: addrMatch[1] }
+    return { network, path: [], address: addrMatch[1], simulate: false }
   }
 
   const txMatch = url.pathname.match(/^\/tx\/(0x[0-9a-fA-F]{64})$/)
   const hash = txMatch?.[1]
-  return { network, path: hash && isValidTxHash(hash) ? [hash] : [], address: null }
+  return { network, path: hash && isValidTxHash(hash) ? [hash] : [], address: null, simulate: false }
 }
 
-export function buildUrl(network: Network, hash: string | null, address?: string | null): string {
+export function buildUrl(
+  network: Network,
+  hash: string | null,
+  address?: string | null,
+  simulate?: boolean,
+): string {
   const query = `?network=${network}`
+  if (simulate) return `/simulate${query}`
   if (address) return `/address/${address}${query}`
   return hash ? `/tx/${hash}${query}` : `/${query}`
 }

@@ -14,11 +14,18 @@ import { isUdtType } from '@/decode/data'
 import { lookupToken } from '@/decode/tokens'
 import { decodeUdtAmount } from '@/decode/udt'
 import { VizError } from '@/domain/errors'
+import { parseSimulationError, type SimulationResult } from '@/domain/simulation'
 import type { Cell, Network, OutPoint, Transaction } from '@/domain/types'
 import { deploymentFor } from '@/registry/codeHashes'
 import { ScriptRegistry } from '@/registry/registry'
 import type { SourceCapabilities, TransactionSource } from '../TransactionSource'
-import { cellFromCcc, normalizeTransaction, scriptFromCcc } from './normalize'
+import {
+  cellFromCcc,
+  normalizeRawTransaction,
+  normalizeTransaction,
+  parseRawRpcTransaction,
+  scriptFromCcc,
+} from './normalize'
 
 /** Bound the input-resolution fan-out so a large tx can't hammer the endpoint. */
 const RESOLVE_CONCURRENCY = 8
@@ -43,9 +50,11 @@ export class NodeSource implements TransactionSource {
   readonly network: Network
   readonly capabilities: SourceCapabilities = { forwardLineage: true }
   private readonly client: Client
+  private readonly rpcUrl: string
 
   constructor(network: Network, rpcUrl: string) {
     this.network = network
+    this.rpcUrl = rpcUrl
     this.client =
       network === 'mainnet'
         ? new ClientPublicMainnet({ url: rpcUrl })
@@ -184,7 +193,14 @@ export class NodeSource implements TransactionSource {
     try {
       parsed = await Address.fromString(address, this.client)
     } catch {
-      throw new VizError('invalid-hash', 'Not a valid address for this network')
+      const expected = address.trim().toLowerCase().startsWith('ckt') ? 'testnet' : 'mainnet'
+      throw new VizError(
+        'invalid-address',
+        'Invalid address',
+        this.network === expected
+          ? 'This does not decode as a valid CKB address.'
+          : `This is a ${expected} address, but the ${this.network} network is selected.`,
+      )
     }
     const lockScript = parsed.script
     const key = { script: lockScript, scriptType: 'lock' as const, scriptSearchMode: 'exact' as const }
@@ -312,21 +328,105 @@ export class NodeSource implements TransactionSource {
     return results
   }
 
-  private async resolveOne(outPoint: CccOutPoint): Promise<Cell | undefined> {
-    const location = { txHash: outPoint.txHash, index: Number(outPoint.index) }
+  private resolveOne(outPoint: CccOutPoint): Promise<Cell | undefined> {
+    return this.resolveByLocation(outPoint.txHash, Number(outPoint.index))
+  }
+
+  private async resolveByLocation(txHash: string, index: number): Promise<Cell | undefined> {
+    const location = { txHash, index }
     const prefix = this.client.addressPrefix
     try {
-      const live = await this.client.getCellLive(outPoint, true)
+      const live = await this.client.getCellLive({ txHash, index: BigInt(index) }, true)
       if (live) return cellFromCcc(live.cellOutput, live.outputData, location, prefix)
 
       // Spent or not live — fall back to the creating transaction's output.
-      const prev = await this.client.getTransaction(outPoint.txHash)
+      const prev = await this.client.getTransaction(txHash)
       if (!prev) return undefined
-      const output = prev.transaction.outputs[location.index]
+      const output = prev.transaction.outputs[index]
       if (!output) return undefined
-      return cellFromCcc(output, prev.transaction.outputsData[location.index] ?? '0x', location, prefix)
+      return cellFromCcc(output, prev.transaction.outputsData[index] ?? '0x', location, prefix)
     } catch {
       return undefined
+    }
+  }
+
+  /** Raw JSON-RPC call for methods CCC does not type (test_tx_pool_accept). */
+  private async rawRpc(method: string, params: unknown[]): Promise<{ result?: unknown; error?: { message?: string } }> {
+    const res = await fetch(this.rpcUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: 1, jsonrpc: '2.0', method, params }),
+    })
+    return res.json() as Promise<{ result?: unknown; error?: { message?: string } }>
+  }
+
+  /**
+   * Simulate a raw transaction against current chain state (SPEC: CKB has no
+   * on-chain failed txs, so validity is answered by running it). Resolves inputs
+   * and normalizes for the flow, then runs estimate_cycles — which executes
+   * every lock and type script and returns the cycles, or the failing script /
+   * exit code on error.
+   */
+  async simulateTransaction(rawInput: unknown): Promise<SimulationResult> {
+    const raw = parseRawRpcTransaction(rawInput)
+    const inputCells = await Promise.all(
+      raw.inputs.map((i) =>
+        this.resolveByLocation(i.previous_output.tx_hash, Number(BigInt(i.previous_output.index))),
+      ),
+    )
+    const transaction = normalizeRawTransaction(raw, inputCells, this.network)
+    const fee = transaction.fee
+
+    const txForRpc = {
+      version: raw.version ?? '0x0',
+      cell_deps: raw.cell_deps,
+      header_deps: raw.header_deps,
+      inputs: raw.inputs,
+      outputs: raw.outputs,
+      outputs_data: raw.outputs_data,
+      witnesses: raw.witnesses,
+    }
+
+    let response
+    try {
+      response = await this.rawRpc('estimate_cycles', [txForRpc])
+    } catch (error) {
+      throw new VizError(
+        'network',
+        'Could not reach the node to simulate',
+        error instanceof Error ? error.message : undefined,
+      )
+    }
+
+    if (response.error) {
+      const message = response.error.message ?? JSON.stringify(response.error)
+      return {
+        verdict: 'invalid',
+        error: parseSimulationError(message),
+        transaction,
+        ...(fee !== undefined ? { fee } : {}),
+      }
+    }
+
+    const cycles = BigInt((response.result as { cycles: string }).cycles)
+    return { verdict: 'valid', cycles, transaction, ...(fee !== undefined ? { fee } : {}) }
+  }
+
+  /** A real pending transaction's raw JSON, to prefill the simulator. Null when
+   *  the mempool is empty (CKB traffic is low, so this can happen). */
+  async getSimulationExample(): Promise<string | null> {
+    try {
+      const pool = await this.rawRpc('get_raw_tx_pool', [])
+      const ids = pool.result as { pending?: string[]; proposed?: string[] } | undefined
+      const hash = ids?.pending?.[0] ?? ids?.proposed?.[0]
+      if (!hash) return null
+      const resp = await this.rawRpc('get_transaction', [hash])
+      const tx = (resp.result as { transaction?: Record<string, unknown> } | undefined)?.transaction
+      if (!tx) return null
+      delete tx.hash
+      return JSON.stringify(tx, null, 2)
+    } catch {
+      return null
     }
   }
 }
