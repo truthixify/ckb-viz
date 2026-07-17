@@ -67,6 +67,7 @@ export const CODE_HASHES = {
   },
   rusd: {
     mainnet: { codeHash: '0x26a33e0815888a4a0614a0b7d09fa951e0993ff21e55905510104a0b1312032b', hashType: 'type' },
+    testnet: { codeHash: '0x1142755a044bf2ee358cba9f2da187ce928c91cd4dc8692ded0337efa677d21a', hashType: 'type' },
   },
   ccbtc: {
     mainnet: { codeHash: '0x092c2c4a26ea475a8e860c29cf00502103add677705e2ccd8d6fe5af3caa5ae3', hashType: 'type' },

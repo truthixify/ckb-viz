@@ -44,6 +44,9 @@ const TOKEN_LIST: TokenEntry[] = [
   { network: 'mainnet', codeHash: SUDT, args: '0x9657b32fcdc463e13ec9205914fd91c443822a949937ae94add9869e7f2e1de8', info: { symbol: 'ETH', name: 'ETH (bridged)', decimals: 18 } },
   { network: 'mainnet', codeHash: SUDT, args: '0x656edac5463ef828a1a95f214b56adfe8f37da148fbc7ff424905e5264297c70', info: { symbol: 'YOK', name: 'YokaiSwap', decimals: 18 } },
 
+  // Testnet.
+  { network: 'testnet', codeHash: CODE_HASHES.rusd.testnet!.codeHash, args: '0x878fcc6f1f08d48e87bb1c3b3d5083f23f8a39c5d5c764f253b55b998526439b', info: { symbol: 'RUSD', name: 'RUSD (Stable++)', decimals: 8 } },
+
   // Demo token for the bundled example transactions (fabricated identity).
   { network: 'mainnet', codeHash: XUDT, args: '0xd41e' + '0'.repeat(60), info: { symbol: 'RUSD', name: 'RUSD stablecoin', decimals: 6 } },
 ]

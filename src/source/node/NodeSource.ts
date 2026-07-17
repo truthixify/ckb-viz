@@ -11,6 +11,7 @@ import { EXAMPLE_KINDS, exampleSearch } from '@/app/examples'
 import type { AddressView, TokenHolding } from '@/domain/address'
 import { decodeDaoCell } from '@/decode/dao'
 import { isUdtType } from '@/decode/data'
+import { byteLength } from '@/domain/hex'
 import { lookupToken } from '@/decode/tokens'
 import { decodeUdtAmount } from '@/decode/udt'
 import { VizError } from '@/domain/errors'
@@ -227,7 +228,11 @@ export class NodeSource implements TransactionSource {
         const cccType = cell.cellOutput.type
         if (cccType) {
           const type = scriptFromCcc(cccType)
-          if (isUdtType(this.network, type, registry)) {
+          // A fungible-token cell is a known UDT, or any type-script cell whose
+          // data is exactly a 16-byte little-endian amount — so tokens whose
+          // code hash we don't recognize still show (unnamed), like Etherscan.
+          const isToken = isUdtType(this.network, type, registry) || byteLength(cell.outputData) === 16
+          if (isToken) {
             const amount = decodeUdtAmount(cell.outputData) ?? 0n
             const id = `${type.codeHash}:${type.args}`.toLowerCase()
             const existing = tokenMap.get(id)
