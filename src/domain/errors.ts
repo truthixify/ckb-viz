@@ -5,10 +5,12 @@
 
 export type VizErrorKind =
   | 'invalid-hash' // the input is not a 0x + 64 hex string
+  | 'invalid-address' // the input is not a valid ckb/ckt address
   | 'not-found' // the node reports tx_status unknown, or no such tx
   | 'network' // fetch / CORS / endpoint failure
   | 'rpc' // a well-formed JSON-RPC error from the node
   | 'decode' // a value could not be decoded (soft — usually non-fatal)
+  | 'malformed' // a pasted transaction is not shaped like a CKB transaction
   | 'unsupported' // the source cannot do this (e.g. forward lineage on a node)
 
 export class VizError extends Error {
@@ -33,13 +35,23 @@ export function describeError(err: unknown): { title: string; body: string } {
     switch (err.kind) {
       case 'invalid-hash':
         return {
-          title: 'That is not a transaction hash',
-          body: 'A CKB transaction hash is "0x" followed by 64 hexadecimal characters.',
+          title: 'That is not a transaction hash or address',
+          body: 'Enter a transaction hash ("0x" + 64 hex characters) or a ckb/ckt address.',
+        }
+      case 'invalid-address':
+        return {
+          title: 'That is not a valid CKB address',
+          body: err.detail ?? 'A CKB address starts with "ckb" (mainnet) or "ckt" (testnet).',
         }
       case 'not-found':
         return {
           title: 'No such transaction on this network',
           body: 'The node has never seen this hash, or it was evicted. Try the other network.',
+        }
+      case 'malformed':
+        return {
+          title: 'That is not a CKB transaction',
+          body: err.message,
         }
       case 'network':
         return {
