@@ -198,7 +198,22 @@ function Verdict({
         </dl>
       ) : (
         <div className="flex flex-col gap-4">
-          {(err?.scriptGroup || err?.exitCode !== undefined || err?.outPoint) && (
+          {err?.consumedBy && (
+            <div className="flex flex-col gap-1.5">
+              <span className="meta-label-sm">Already on-chain</span>
+              <span className="text-[12px] text-bone-dim">
+                An input was already spent — this transaction has likely been committed. Open it:
+              </span>
+              <button
+                type="button"
+                onClick={() => onOpenTx(err.consumedBy!)}
+                className="mono self-start border border-border px-3 py-2 text-[11px] uppercase tracking-[0.1em] text-bone-dim transition-colors hover:border-ember hover:text-ember"
+              >
+                {truncateHash(err.consumedBy, 10, 8)} ↗
+              </button>
+            </div>
+          )}
+          {(err?.scriptGroup || err?.exitCode !== undefined || (err?.outPoint && !err.consumedBy)) && (
             <dl className="flex flex-wrap gap-x-12 gap-y-4">
               {err?.scriptGroup && (
                 <Reading label="Failing script">
@@ -206,7 +221,7 @@ function Verdict({
                 </Reading>
               )}
               {err?.exitCode !== undefined && <Reading label="Exit code">{err.exitCode}</Reading>}
-              {err?.outPoint && (
+              {err?.outPoint && !err.consumedBy && (
                 <Reading label="Unresolved input">
                   <button type="button" className="mono copyable" onClick={() => onCopy(err.outPoint!)} title="Copy out-point">
                     {truncateHash(err.outPoint, 10, 8)}

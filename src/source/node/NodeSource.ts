@@ -15,7 +15,7 @@ import { byteLength } from '@/domain/hex'
 import { lookupToken } from '@/decode/tokens'
 import { decodeUdtAmount } from '@/decode/udt'
 import { VizError } from '@/domain/errors'
-import { parseSimulationError, type SimulationResult } from '@/domain/simulation'
+import { parseSimulationError, splitOutPoint, type SimulationResult } from '@/domain/simulation'
 import type { Cell, Network, OutPoint, Transaction } from '@/domain/types'
 import { deploymentFor } from '@/registry/codeHashes'
 import { ScriptRegistry } from '@/registry/registry'
@@ -405,12 +405,25 @@ export class NodeSource implements TransactionSource {
 
     if (response.error) {
       const message = response.error.message ?? JSON.stringify(response.error)
-      return {
-        verdict: 'invalid',
-        error: parseSimulationError(message),
-        transaction,
-        ...(fee !== undefined ? { fee } : {}),
+      const error = parseSimulationError(message)
+      // A resolve failure usually means an input is already spent. Find what
+      // spent it — often this very transaction, now committed on-chain — so the
+      // verdict can say so and link there.
+      if (error.kind === 'resolve' && error.outPoint) {
+        const op = splitOutPoint(error.outPoint)
+        if (op) {
+          try {
+            const consumer = await this.findConsumingTx(op)
+            if (consumer) {
+              error.consumedBy = consumer
+              error.headline = 'This input is already spent — the transaction is likely already on-chain.'
+            }
+          } catch {
+            // keep the generic resolve message
+          }
+        }
       }
+      return { verdict: 'invalid', error, transaction, ...(fee !== undefined ? { fee } : {}) }
     }
 
     const cycles = BigInt((response.result as { cycles: string }).cycles)

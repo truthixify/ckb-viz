@@ -32,6 +32,9 @@ export interface SimulationError {
   exitCode?: number
   /** The out-point that could not be resolved, for a resolve failure. */
   outPoint?: string
+  /** The transaction that already spent the unresolved input, when found —
+   *  usually this transaction, now committed on-chain. */
+  consumedBy?: string
 }
 
 /**
@@ -39,6 +42,16 @@ export interface SimulationError {
  * structured, human verdict. Defensive: unknown shapes fall back to the raw
  * message so nothing is hidden.
  */
+/** Split a CKB error's OutPoint blob (0x + txHash[32] + index[4 LE]) into its
+ *  transaction hash and output index, so the consumer can be looked up. */
+export function splitOutPoint(blob: string): { txHash: string; index: number } | null {
+  const hex = blob.replace(/^0x/, '')
+  if (hex.length < 64) return null
+  const idxHex = hex.slice(64, 72)
+  const le = (idxHex.match(/../g) ?? []).reverse().join('')
+  return { txHash: '0x' + hex.slice(0, 64), index: le ? Number(BigInt('0x' + le)) : 0 }
+}
+
 export function parseSimulationError(raw: string): SimulationError {
   const scriptGroup = raw.match(/(Inputs|Outputs)\[(\d+)\]\.(Lock|Type)/)?.[0]
   const exitMatch =

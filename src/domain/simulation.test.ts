@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseSimulationError } from './simulation'
+import { parseSimulationError, splitOutPoint } from './simulation'
 import { normalizeRawTransaction, parseRawRpcTransaction } from '@/source/node/normalize'
 
 describe('parseSimulationError', () => {
@@ -32,6 +32,20 @@ describe('parseSimulationError', () => {
     const e = parseSimulationError('Something entirely unexpected')
     expect(e.kind).toBe('other')
     expect(e.raw).toBe('Something entirely unexpected')
+  })
+})
+
+describe('splitOutPoint', () => {
+  it('splits a CKB OutPoint blob into tx hash and little-endian index', () => {
+    expect(splitOutPoint('0x' + 'f6'.repeat(32) + '00000000')).toEqual({
+      txHash: '0x' + 'f6'.repeat(32),
+      index: 0,
+    })
+    expect(splitOutPoint('0x' + 'ab'.repeat(32) + '02000000')).toEqual({
+      txHash: '0x' + 'ab'.repeat(32),
+      index: 2,
+    })
+    expect(splitOutPoint('0xdeadbeef')).toBeNull()
   })
 })
 
