@@ -83,9 +83,7 @@ export function SimulatePanel({
         <div className="flex flex-col gap-2">
           <span className="meta-label">Simulate a transaction</span>
           <p className="max-w-2xl text-[13px] leading-relaxed text-bone-dim">
-            CKB has no on-chain failed transactions — a transaction is either valid and committed,
-            or rejected and never recorded. Paste a raw CKB transaction below to run it against the
-            current chain state: it reports the cycles consumed, or the exact script that fails.
+            Paste a raw CKB transaction to check it against the current chain state.
           </p>
         </div>
 
