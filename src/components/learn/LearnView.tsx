@@ -41,7 +41,15 @@ interface Ctx {
   setBalance: (n: number) => void
   amount: number
   setAmount: (n: number) => void
+  /** The send screen's own running wallets. They accumulate across payments and
+   *  are not shared with the illustrative steps (players, cells, recap). */
+  payAlice: number[]
+  payBob: number[]
+  pay: (amount: number) => void
+  resetPay: () => void
 }
+
+const round3 = (n: number) => Math.round(n * 1000) / 1000
 
 interface Step {
   id: string
@@ -54,13 +62,34 @@ interface Step {
 
 export function LearnView({ onExplore }: { onExplore: () => void }) {
   const [i, setI] = useState(0)
-  const [balance, setBalance] = useState(500)
+  const [balance, setBalanceRaw] = useState(500)
   const [amount, setAmount] = useState(120)
+  const [payAlice, setPayAlice] = useState<number[]>(() => splitBalance(500))
+  const [payBob, setPayBob] = useState<number[]>([])
+
+  const setBalance = (n: number) => {
+    setBalanceRaw(n)
+    setPayAlice(splitBalance(n))
+    setPayBob([])
+    setAmount((a) => Math.min(a, Math.max(0, n - FEE)))
+  }
+  const pay = (amt: number) => {
+    const total = payAlice.reduce((a, b) => a + b, 0)
+    const sendAmt = Math.min(amt, Math.max(0, total - FEE))
+    if (sendAmt <= 0) return
+    const change = round3(total - sendAmt - FEE)
+    setPayAlice(change > 0 ? [change] : [])
+    setPayBob((prev) => [...prev, sendAmt])
+  }
+  const resetPay = () => {
+    setPayAlice(splitBalance(balance))
+    setPayBob([])
+  }
 
   const steps = useMemo(() => STEPS, [])
   const step = steps[i]!
   const last = steps.length - 1
-  const ctx: Ctx = { balance, setBalance, amount, setAmount }
+  const ctx: Ctx = { balance, setBalance, amount, setAmount, payAlice, payBob, pay, resetPay }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -315,7 +344,7 @@ const STEPS: Step[] = [
     label: 'Making a payment',
     kicker: 'Old coins in, new coins out',
     title: 'How a payment actually works',
-    body: "Here is the payment itself. Alice's coins are taken out of her wallet and destroyed by the transaction. In their place the transaction creates new coins: one for Bob, and one that returns Alice's change. A small amount called the fee is kept by the miner who records the transaction, which is why the new coins add up to a little less than the old ones. Drag the amount to choose how much Alice sends, then press Sign and send to watch the coins move. The totals below always show what each person holds afterwards.",
+    body: "Here is the payment itself. Alice's coins are taken out of her wallet and destroyed by the transaction. In their place the transaction creates new coins: one for Bob, and one that returns Alice's change. A small amount called the fee is kept by the miner who records the transaction, which is why the new coins add up to a little less than the old ones. Drag the amount, then press Sign and send. You can send again and again: each payment leaves Alice with a little less and adds another coin to Bob's wallet, just like spending in real life. Press Reset to start over.",
     render: (ctx) => <SendScene ctx={ctx} />,
   },
   {
@@ -477,17 +506,20 @@ const STAG = 90
 const ARRIVE = 640
 
 function SendScene({ ctx }: { ctx: Ctx }) {
-  const { balance, amount, setAmount, setBalance } = ctx
+  const { payAlice, payBob, amount, setAmount, pay, resetPay } = ctx
   const reduce = usePrefersReducedMotion()
   const [playing, setPlaying] = useState(false)
   const [flight, setFlight] = useState(0)
   const timer = useRef<number | undefined>(undefined)
 
-  const inputs = splitBalance(balance)
+  const inputs = payAlice.length ? payAlice : [0]
   const nIn = inputs.length
-  const maxSend = Math.max(0, balance - FEE)
+  const aliceTotal = round3(payAlice.reduce((a, b) => a + b, 0))
+  const bobTotal = round3(payBob.reduce((a, b) => a + b, 0))
+  const maxSend = Math.max(0, round3(aliceTotal - FEE))
   const send = Math.min(amount, maxSend)
-  const change = Math.max(0, balance - send - FEE)
+  const change = Math.max(0, round3(aliceTotal - send - FEE))
+  const canSend = send > 0 && aliceTotal > FEE
 
   const deliverStart = nIn * STAG + ARRIVE + 60
   const playMs = deliverStart + ARRIVE + 260
@@ -495,15 +527,27 @@ function SendScene({ ctx }: { ctx: Ctx }) {
   useEffect(() => () => window.clearTimeout(timer.current), [])
 
   const play = () => {
-    if (reduce || send <= 0) return
+    if (!canSend) return
+    if (reduce) {
+      pay(send)
+      return
+    }
+    const amt = send
     setFlight((f) => f + 1)
     setPlaying(true)
     window.clearTimeout(timer.current)
-    timer.current = window.setTimeout(() => setPlaying(false), playMs)
+    timer.current = window.setTimeout(() => {
+      setPlaying(false)
+      pay(amt)
+    }, playMs)
+  }
+  const doReset = () => {
+    window.clearTimeout(timer.current)
+    setPlaying(false)
+    resetPay()
   }
 
-  const aliceCoins = playing ? [] : change > 0 ? [change] : []
-  const bobCoins = playing ? [] : send > 0 ? [send] : []
+  const aliceRest = playing ? [] : payAlice
 
   return (
     <div className="flex w-full flex-col gap-5">
@@ -511,7 +555,7 @@ function SendScene({ ctx }: { ctx: Ctx }) {
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           <div className="flex flex-col items-center gap-1.5">
             <Avatar name="Alice" color={ALICE} size={44} />
-            <Wallet owner="" color={ALICE} coins={aliceCoins} size={104} emptyLabel="" receiveKey={playing ? 0 : flight} />
+            <Wallet owner="" color={ALICE} coins={aliceRest} size={104} emptyLabel="out of coins" receiveKey={playing ? 0 : flight} />
           </div>
 
           <div className="flex flex-col items-center gap-2 px-2">
@@ -521,12 +565,12 @@ function SendScene({ ctx }: { ctx: Ctx }) {
             >
               transaction
             </span>
-            <span className="mono text-[9px] uppercase tracking-[0.1em] text-muted">fee {FEE} → miner</span>
+            <span className="mono text-[9px] uppercase tracking-[0.1em] text-muted">fee {FEE} to miner</span>
           </div>
 
           <div className="flex flex-col items-center gap-1.5">
             <Avatar name="Bob" color={BOB} size={44} />
-            <Wallet owner="" color={BOB} coins={bobCoins} size={104} emptyLabel="empty" receiveKey={playing ? 0 : flight} />
+            <Wallet owner="" color={BOB} coins={payBob} size={104} emptyLabel="empty" receiveKey={playing ? 0 : flight} />
           </div>
         </div>
 
@@ -599,24 +643,31 @@ function SendScene({ ctx }: { ctx: Ctx }) {
       </div>
 
       <div className="grid grid-cols-3 gap-2 border-t border-hairline pt-4">
-        <Stat label="Sent to Bob" value={send} tint="var(--color-flow-out)" />
-        <Stat label="Alice holds now" value={change} sub={change > 0 ? '1 coin' : 'no coins'} tint={ALICE} />
-        <Stat label="Bob holds now" value={send} sub={send > 0 ? '1 coin' : 'no coins'} tint="var(--color-flow-out)" />
+        <Stat label="Next payment" value={send} tint="var(--color-ember)" />
+        <Stat label="Alice holds now" value={aliceTotal} sub={`${payAlice.length} coin${payAlice.length === 1 ? '' : 's'}`} tint={ALICE} />
+        <Stat label="Bob holds now" value={bobTotal} sub={`${payBob.length} payment${payBob.length === 1 ? '' : 's'}`} tint="var(--color-flow-out)" />
       </div>
 
       <div className="flex flex-col gap-4 border-t border-hairline pt-4 min-[620px]:flex-row min-[620px]:items-end min-[620px]:gap-6">
         <div className="min-[620px]:flex-1">
           <Slider label="Alice sends Bob" value={send} onChange={setAmount} max={maxSend} />
         </div>
-        <Stepper label="Alice's balance" value={balance} onChange={setBalance} min={100} max={100000} step={50} />
         <button
           type="button"
           onClick={play}
-          disabled={playing || send <= 0}
+          disabled={playing || !canSend}
           className="mono h-9 shrink-0 border px-4 text-[11px] font-medium uppercase tracking-[0.12em] transition-colors disabled:opacity-40"
           style={{ borderColor: 'var(--color-ember)', color: 'var(--color-ember)' }}
         >
-          {playing ? 'Sending…' : '▶ Sign & send'}
+          {playing ? 'Sending…' : canSend ? '▶ Sign & send' : 'Out of coins'}
+        </button>
+        <button
+          type="button"
+          onClick={doReset}
+          disabled={playing}
+          className="mono h-9 shrink-0 border border-border px-4 text-[11px] uppercase tracking-[0.12em] text-bone-dim transition-colors hover:border-bone-dim hover:text-bone disabled:opacity-40"
+        >
+          ↺ Reset
         </button>
       </div>
     </div>
