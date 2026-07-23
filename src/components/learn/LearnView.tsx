@@ -336,7 +336,7 @@ const STEPS: Step[] = [
     label: 'Why coins have a size',
     kicker: 'Storage costs CKB',
     title: 'A coin reserves space, and space costs CKB',
-    body: 'Holding a coin means reserving room on the blockchain to store it. That room is called capacity, and it is measured in CKB, where one byte of storage costs one CKB. Even an empty coin needs about 61 CKB just for its basic fields. If you store more inside a coin, such as a token amount or a name, it has to reserve more CKB. Drag the slider to add data and watch the coin grow.',
+    body: "Holding a coin means reserving room on the blockchain to store it. That room is called capacity, and it is measured in CKB, where one byte of storage costs one CKB. A coin's size and its CKB value are the same thing. A plain coin needs at least 61 CKB for its lock and basic fields. A token coin needs more, about 142 CKB, because it also carries a type script (its rulebook) and the token amount. This CKB is reserved rather than spent, so destroying the coin frees it again. Toggle between a plain and a token coin, and add data, to see the size change.",
     render: () => <CapacityScene />,
   },
   {
@@ -450,46 +450,75 @@ function AccountsVsCells({ ctx }: { ctx: Ctx }) {
 
 /* ── capacity ───────────────────────────────────────────────────────────── */
 
-const BASE_CAPACITY = 61
+// A cell's occupied capacity, per RFC 0019: 8 bytes for the capacity field, plus
+// each script (32-byte code hash + 1 hash-type byte + args), plus the data. A
+// plain cell with a Secp256k1 lock (20-byte args) floors at 8 + 53 = 61 CKB. A
+// token cell adds a type script (~65) and a 16-byte amount, so it floors near 142.
+const CAP_BASE = 61
+const CAP_TYPE = 65
+const CAP_AMOUNT = 16
 
-function dataMeaning(bytes: number): string {
-  if (bytes === 0) return 'an empty coin, with only its basic fields and no data'
-  if (bytes <= 16) return 'a token balance, which is a 16-byte number such as RUSD'
-  if (bytes <= 120) return 'a name, a note, or a small record'
-  return 'an on-chain NFT, an image, or a program'
+function capacityCaption(token: boolean, extra: number): string {
+  if (token) {
+    const tail = extra > 0 ? `, plus ${extra} for extra data` : ''
+    return `A token coin reserves about ${CAP_BASE + CAP_TYPE + CAP_AMOUNT + extra} CKB: the 61 base, a 65-byte type script (its rulebook), and 16 bytes for the amount${tail}.`
+  }
+  if (extra === 0) return 'An empty coin reserves 61 CKB: 8 bytes for its capacity field and 53 for its lock.'
+  return `A plain coin reserves ${CAP_BASE + extra} CKB: the 61 base plus ${extra} bytes of data.`
 }
 
 function CapacityScene() {
-  const [bytes, setBytes] = useState(16)
-  const total = BASE_CAPACITY + bytes
-  const barMax = BASE_CAPACITY + 400
-  const basePct = (BASE_CAPACITY / barMax) * 100
-  const dataPct = (bytes / barMax) * 100
-  const coinSize = Math.round(58 + (bytes / 400) * 78)
+  const [token, setToken] = useState(false)
+  const [extra, setExtra] = useState(0)
+  const typeBytes = token ? CAP_TYPE : 0
+  const amountBytes = token ? CAP_AMOUNT : 0
+  const total = CAP_BASE + typeBytes + amountBytes + extra
+  const barMax = 320
+  const seg = (n: number) => `${(n / barMax) * 100}%`
+  const coinSize = Math.round(58 + Math.min(1, (total - CAP_BASE) / 240) * 82)
 
   return (
-    <div className="flex w-full max-w-xl flex-col items-center gap-6">
-      <div className="flex items-center gap-5">
-        <CellCoin value={total} size={coinSize} interactive style={{ transition: 'width 200ms ease-out, height 200ms ease-out' }} />
+    <div className="flex w-full max-w-xl flex-col items-center gap-5">
+      <div className="inline-flex border border-border">
+        {([['plain', 'Plain coin'], ['token', 'Token coin']] as const).map(([k, labelText]) => {
+          const on = (k === 'token') === token
+          return (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setToken(k === 'token')}
+              className="mono px-4 py-1.5 text-[10px] uppercase tracking-[0.12em] transition-colors"
+              style={on ? { background: 'color-mix(in oklab, var(--color-ember) 18%, transparent)', color: 'var(--color-ember)' } : { color: 'var(--color-muted)' }}
+            >
+              {labelText}
+            </button>
+          )
+        })}
       </div>
+
+      <CellCoin value={total} owner="A" {...(token ? { type: 'RUSD' } : {})} size={coinSize} interactive style={{ transition: 'width 200ms ease-out, height 200ms ease-out' }} />
 
       <div className="w-full">
         <div className="flex h-6 w-full overflow-hidden border border-hairline bg-inset">
-          <div className="h-full" style={{ width: `${basePct}%`, background: 'color-mix(in oklab, var(--color-ember) 55%, transparent)' }} />
-          <div className="h-full transition-[width] duration-200 ease-out" style={{ width: `${dataPct}%`, background: 'var(--color-flow-out)' }} />
+          <div className="h-full" style={{ width: seg(CAP_BASE), background: 'color-mix(in oklab, var(--color-ember) 55%, transparent)' }} />
+          {token && <div className="h-full transition-[width] duration-200 ease-out" style={{ width: seg(CAP_TYPE), background: 'var(--color-dep)' }} />}
+          {token && <div className="h-full transition-[width] duration-200 ease-out" style={{ width: seg(CAP_AMOUNT), background: 'var(--color-flow-out)' }} />}
+          <div className="h-full transition-[width] duration-200 ease-out" style={{ width: seg(extra), background: 'var(--color-flow-in)' }} />
         </div>
-        <div className="mt-2 flex justify-between">
-          <span className="mono text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--color-ember)' }}>■ base 61 CKB</span>
-          <span className="mono text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--color-flow-out)' }}>■ data {bytes} CKB</span>
+        <div className="mt-2 flex flex-wrap justify-center gap-x-5 gap-y-1">
+          <span className="mono text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--color-ember)' }}>■ base 61</span>
+          {token && <span className="mono text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--color-dep)' }}>■ type script 65</span>}
+          {token && <span className="mono text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--color-flow-out)' }}>■ amount 16</span>}
+          <span className="mono text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--color-flow-in)' }}>■ data {extra}</span>
         </div>
       </div>
 
       <div className="w-full">
-        <Slider label="Data stored (bytes)" value={bytes} onChange={setBytes} max={400} tint="var(--color-flow-out)" unit="bytes" />
+        <Slider label="Extra data (bytes)" value={extra} onChange={setExtra} max={200} tint="var(--color-flow-in)" unit="bytes" />
       </div>
 
-      <span className="mono text-center text-[11px] text-bone-dim">
-        {fmt(total)} CKB holds {dataMeaning(bytes)}.
+      <span className="mono max-w-md text-center text-[11px] leading-relaxed text-bone-dim">
+        {capacityCaption(token, extra)} This CKB is reserved, not spent: destroy the coin and you get all of it back.
       </span>
     </div>
   )
@@ -565,7 +594,7 @@ function SendScene({ ctx }: { ctx: Ctx }) {
             >
               transaction
             </span>
-            <span className="mono text-[9px] uppercase tracking-[0.1em] text-muted">fee {FEE} to miner</span>
+            <span className="mono text-[9px] uppercase tracking-[0.1em] text-muted">example fee {FEE} to miner</span>
           </div>
 
           <div className="flex flex-col items-center gap-1.5">
@@ -697,8 +726,8 @@ interface Detail {
 function stageDetail(k: number, o: { invalid: boolean; rejected: boolean; confirms: number }): Detail {
   if (o.invalid && o.rejected && k === GATE) {
     return {
-      title: 'Rejected at validation',
-      desc: 'A node runs the scripts. A lock or type returns false, so the node drops the transaction from its pool. Nothing is ever written on-chain.',
+      title: 'Rejected at verification',
+      desc: 'While the transaction sits in the pool, a node runs its lock and type scripts. One of them returns false, so the node drops the transaction here, before it can be proposed. It is never written into a block.',
       rows: [['Scripts', 'failed ✕'], ['Mempool', 'dropped'], ['On-chain', 'never recorded']],
       tone: 'alarm',
     }
@@ -726,13 +755,13 @@ function stageDetail(k: number, o: { invalid: boolean; rejected: boolean; confir
     case 3:
       return {
         title: 'Proposed',
-        desc: 'CKB confirms in two steps: a transaction is first proposed in a block, then committed a couple of blocks later. That delay defends against certain attacks.',
-        rows: [['Block', `#${BLOCK_NO}`], ['Step', '1 of 2 · propose']],
+        desc: 'CKB records a transaction in two steps. It is first announced in a block’s proposal zone, then a later block actually commits it a few blocks on. That gap defends against certain attacks.',
+        rows: [['Step', '1 of 2 · propose'], ['Block', 'not yet']],
       }
     case 4:
       return {
         title: 'Committed',
-        desc: 'The transaction is sealed into a block. It is final; confirmations accrue as more blocks stack on top.',
+        desc: 'A later block records the transaction. It is not instantly final: each block mined on top makes it harder to reverse, which is what the confirmation count measures.',
         rows: [['Block', `#${BLOCK_NO}`], ['Step', '2 of 2 · commit'], ['Confirmations', String(Math.max(1, o.confirms))]],
         live: 'confirm',
         tone: 'ok',

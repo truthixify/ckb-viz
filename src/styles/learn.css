@@ -1,7 +1,8 @@
 /*
-  Motion for the /learn walkthrough. Every animation here is finite and plays
-  once — nothing loops. Coins leave a wallet and land in a wallet; the tx packet
-  travels its road and settles. Scenes replay by remounting (keyed on state).
+  Motion for the /learn walkthrough. The payment and lifecycle motions play once
+  and settle; a few ambient loops (lc-bob, lc-twinkle, lc-pulse) signal "alive"
+  and are reduced-motion-gated. Coins leave a wallet and land in a wallet; the tx
+  packet travels its road and settles. Scenes replay by remounting (keyed on state).
   prefers-reduced-motion is honoured (global rule in tokens.css + overrides below).
 */
 
