@@ -13,12 +13,16 @@ export function ExamplesBar({
   onPick,
   simulate,
   onSimulate,
+  learn,
+  onLearn,
 }: {
   network: Network
   finding: string | null
   onPick: (kindId: string, label: string) => void
   simulate: boolean
   onSimulate: () => void
+  learn: boolean
+  onLearn: () => void
 }) {
   const kinds = examplesForNetwork(network)
 
@@ -51,6 +55,19 @@ export function ExamplesBar({
           </span>
         </>
       )}
+      <button
+        type="button"
+        onClick={onLearn}
+        className={clsx(
+          'mono shrink-0 text-[10px] uppercase tracking-[0.12em] transition-colors',
+          learn ? 'text-ember' : 'text-muted hover:text-bone',
+        )}
+      >
+        Learn ◆
+      </button>
+      <span aria-hidden className="shrink-0 text-hairline">
+        ·
+      </span>
       <button
         type="button"
         onClick={onSimulate}

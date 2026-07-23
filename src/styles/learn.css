@@ -1,0 +1,168 @@
+/*
+  Animations for the /learn primer. Scenes replay by remounting (keyed on the
+  active chapter), so these fire from the start each time a chapter opens. All
+  respect prefers-reduced-motion via the global rule in tokens.css.
+*/
+
+/* A coin/value token dropping into a cell from above. */
+@keyframes learn-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-46px);
+  }
+  70% {
+    opacity: 1;
+  }
+  85% {
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* A box / element popping into place. */
+@keyframes learn-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* A padlock dropping on and clicking shut. */
+@keyframes learn-lock {
+  0% {
+    opacity: 0;
+    transform: translateY(-16px) scale(1.25);
+  }
+  55% {
+    opacity: 1;
+  }
+  78% {
+    transform: translateY(0) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* A consumed cell dissolving away. */
+@keyframes learn-dissolve {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0.12;
+    transform: scale(0.95);
+  }
+}
+
+/* A type stamp pressing on. */
+@keyframes learn-stamp {
+  0% {
+    opacity: 0;
+    transform: scale(1.7) rotate(-7deg);
+  }
+  65% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+}
+
+/* A value token flowing left→right (input → transaction, or → output). */
+@keyframes learn-flow-x {
+  0% {
+    opacity: 0;
+    transform: translateX(var(--from, -60px));
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(var(--to, 60px));
+  }
+}
+
+/* A short fade-slide-up for captions / labels. */
+@keyframes learn-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* The transaction token travelling the lifecycle track. */
+@keyframes learn-travel {
+  from {
+    left: 0%;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+/* The lifecycle progress line filling left→right. */
+@keyframes learn-fill {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+/* A soft ember pulse for the active lifecycle station / committed stamp. */
+@keyframes learn-glow {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* A wrong key bouncing off a lock (rejection). */
+@keyframes learn-reject {
+  0% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-6px) rotate(-6deg);
+  }
+  50% {
+    transform: translateX(4px) rotate(4deg);
+  }
+  75% {
+    transform: translateX(-2px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@layer utilities {
+  .learn-anim {
+    animation-duration: 0.6s;
+    animation-timing-function: var(--ease-instrument);
+    animation-fill-mode: both;
+  }
+}

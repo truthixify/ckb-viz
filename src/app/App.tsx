@@ -7,6 +7,7 @@ import { isValidTxHash } from '@/domain/units'
 import { ScriptRegistry } from '@/registry/registry'
 import { AddressView } from '@/components/address/AddressView'
 import { SimulatePanel } from '@/components/simulate/SimulatePanel'
+import { LearnView } from '@/components/learn/LearnView'
 import { CopyToast } from '@/components/common/CopyToast'
 import { SrSummary } from '@/components/common/SrSummary'
 import { DetailPanel } from '@/components/detail/DetailPanel'
@@ -37,6 +38,7 @@ export function App() {
   const [path, setPath] = useState<string[]>(initialUrl.path)
   const [address, setAddress] = useState<string | null>(initialUrl.address)
   const [simulate, setSimulate] = useState<boolean>(initialUrl.simulate)
+  const [learn, setLearn] = useState<boolean>(initialUrl.learn)
   const [inputValue, setInputValue] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -47,13 +49,14 @@ export function App() {
     const onPop = (e: PopStateEvent) => {
       fromPopState.current = true
       const state = e.state as
-        | { path?: string[]; network?: Network; address?: string | null; simulate?: boolean }
+        | { path?: string[]; network?: Network; address?: string | null; simulate?: boolean; learn?: boolean }
         | null
       const next = state?.network ? state : parseLocation()
       setNetwork(next.network ?? 'mainnet')
       setPath(next.path ?? [])
       setAddress(next.address ?? null)
       setSimulate(Boolean(next.simulate))
+      setLearn(Boolean(next.learn))
       setSelectedId(null)
     }
     window.addEventListener('popstate', onPop)
@@ -70,10 +73,10 @@ export function App() {
     queryFn: () => source.getLatestTransactionHash(),
     staleTime: 15_000,
     retry: 1,
-    enabled: address === null && !simulate,
+    enabled: address === null && !simulate && !learn,
   })
   const currentHash =
-    address !== null || simulate
+    address !== null || simulate || learn
       ? null
       : path.length > 0
         ? path[path.length - 1]!
@@ -92,17 +95,17 @@ export function App() {
   // carrying the lineage path in history state so back/forward restores it.
   const isFirstSync = useRef(true)
   useEffect(() => {
-    const url = buildUrl(network, currentHash, address, simulate)
-    const state = { path, network, address, simulate }
+    const url = buildUrl(network, currentHash, address, simulate, learn)
+    const state = { path, network, address, simulate, learn }
     if (fromPopState.current) {
       fromPopState.current = false
-    } else if (isFirstSync.current || (path.length === 0 && address === null && !simulate)) {
+    } else if (isFirstSync.current || (path.length === 0 && address === null && !simulate && !learn)) {
       isFirstSync.current = false
       window.history.replaceState(state, '', url)
     } else {
       window.history.pushState(state, '', url)
     }
-  }, [network, currentHash, path, address, simulate])
+  }, [network, currentHash, path, address, simulate, learn])
 
   useEffect(() => {
     if (!toast) return
@@ -118,6 +121,7 @@ export function App() {
   const loadHash = useCallback((hash: string) => {
     setAddress(null)
     setSimulate(false)
+    setLearn(false)
     setPath([hash])
     setSelectedId(null)
     setInputValue('')
@@ -130,6 +134,7 @@ export function App() {
     if (net) setNetwork(net)
     setAddress(addr)
     setSimulate(false)
+    setLearn(false)
     setPath([])
     setSelectedId(null)
     setInputValue('')
@@ -137,6 +142,16 @@ export function App() {
 
   const openSimulate = useCallback(() => {
     setSimulate(true)
+    setLearn(false)
+    setAddress(null)
+    setPath([])
+    setSelectedId(null)
+    setInputValue('')
+  }, [])
+
+  const openLearn = useCallback(() => {
+    setLearn(true)
+    setSimulate(false)
     setAddress(null)
     setPath([])
     setSelectedId(null)
@@ -154,6 +169,7 @@ export function App() {
   const onHome = useCallback(() => {
     setAddress(null)
     setSimulate(false)
+    setLearn(false)
     setPath([])
     setSelectedId(null)
     setInputValue('')
@@ -163,6 +179,7 @@ export function App() {
     setNetwork(next)
     setAddress(null)
     setSimulate(false)
+    setLearn(false)
     setPath([])
     setSelectedId(null)
     setInputValue('')
@@ -239,11 +256,15 @@ export function App() {
         onPick={pickExample}
         simulate={simulate}
         onSimulate={openSimulate}
+        learn={learn}
+        onLearn={openLearn}
       />
 
       <main className="flex-1 overflow-x-auto px-4 py-8 min-[560px]:px-6 min-[560px]:py-10">
         <div className="mx-auto flex max-w-[1180px] flex-col gap-8">
-          {simulate ? (
+          {learn ? (
+            <LearnView onExplore={onHome} />
+          ) : simulate ? (
             <SimulatePanel source={source} network={network} onCopy={onCopy} onOpenTx={loadHash} />
           ) : address !== null ? (
             addressQuery.isLoading ? (
