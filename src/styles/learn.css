@@ -1,66 +1,11 @@
 /*
-  Animations for the /learn primer. Scenes replay by remounting (keyed on the
-  active chapter), so these fire from the start each time a chapter opens. All
-  respect prefers-reduced-motion via the global rule in tokens.css.
+  Motion for the /learn walkthrough. Every animation here is finite and plays
+  once — nothing loops. Coins leave a wallet and land in a wallet; the tx packet
+  travels its road and settles. Scenes replay by remounting (keyed on state).
+  prefers-reduced-motion is honoured (global rule in tokens.css + overrides below).
 */
 
-/* A coin/value token dropping into a cell from above. */
-@keyframes learn-drop {
-  from {
-    opacity: 0;
-    transform: translateY(-46px);
-  }
-  70% {
-    opacity: 1;
-  }
-  85% {
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* A coin dropping from above into a piggy bank's slot, then vanishing inside. */
-@keyframes learn-coin-in {
-  0% {
-    opacity: 0;
-    transform: translateY(-52px) scale(1) rotate(0deg);
-  }
-  18% {
-    opacity: 1;
-  }
-  70% {
-    opacity: 1;
-    transform: translateY(0) scale(1) rotate(180deg);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(8px) scale(0.35) rotate(220deg);
-  }
-}
-
-/* Coins pouring out of a broken piggy bank and drifting toward the transaction. */
-@keyframes learn-coin-out {
-  0% {
-    opacity: 0;
-    transform: translate(0, 0) scale(0.6);
-  }
-  25% {
-    opacity: 1;
-    transform: translate(var(--dx, 30px), var(--dy, 6px)) scale(1);
-  }
-  75% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translate(calc(var(--dx, 30px) * 3), var(--dy, 6px)) scale(0.7);
-  }
-}
-
-/* A box / element popping into place. */
+/* A small element popping into place (e.g. a rolling number in the bank panel). */
 @keyframes learn-pop {
   from {
     opacity: 0;
@@ -72,221 +17,158 @@
   }
 }
 
-/* A padlock dropping on and clicking shut. */
-@keyframes learn-lock {
+/* A coin dropping into a wallet's slot and settling (players / recap). */
+@keyframes coin-in-slot {
   0% {
     opacity: 0;
-    transform: translateY(-16px) scale(1.25);
+    transform: translateY(-26px);
   }
-  55% {
+  70% {
     opacity: 1;
-  }
-  78% {
-    transform: translateY(0) scale(0.9);
+    transform: translateY(3px);
   }
   100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* A consumed cell dissolving away. */
-@keyframes learn-dissolve {
-  from {
-    opacity: 1;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0.12;
-    transform: scale(0.95);
-  }
-}
-
-/* A type stamp pressing on. */
-@keyframes learn-stamp {
-  0% {
-    opacity: 0;
-    transform: scale(1.7) rotate(-7deg);
-  }
-  65% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) rotate(0);
-  }
-}
-
-/* A value token flowing left→right (input → transaction, or → output). */
-@keyframes learn-flow-x {
-  0% {
-    opacity: 0;
-    transform: translateX(var(--from, -60px));
-  }
-  15% {
-    opacity: 1;
-  }
-  85% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(var(--to, 60px));
-  }
-}
-
-/* A coin travelling a horizontal lane (input → transaction → output), looping. */
-@keyframes learn-coin-lane {
-  0% {
-    opacity: 0;
-    left: 0;
-  }
-  15% {
-    opacity: 1;
-  }
-  85% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    left: calc(100% - 12px);
-  }
-}
-
-/* A short fade-slide-up for captions / labels. */
-@keyframes learn-rise {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
-/* The transaction token travelling the lifecycle track. */
-@keyframes learn-travel {
-  from {
-    left: 0%;
+/* SEND — a coin's weighted toss between wallets. Two nested elements:
+   the OUTER owns horizontal travel (left, via --l0 → --l1); the INNER owns the
+   arc + landing (translateY). Combined they read as a coin thrown with weight. */
+@keyframes send-fly-x {
+  0% {
+    left: var(--l0);
+    opacity: 0;
   }
-  to {
-    left: 100%;
+  12% {
+    opacity: 1;
   }
-}
-
-/* A packet hopping station-to-station along the lifecycle track, pausing at
-   each — Built → Sent → Pending → Proposed → Committed — then looping. */
-@keyframes learn-hop {
-  0%,
-  6% {
-    left: 0;
-  }
-  19%,
-  31% {
-    left: calc(25% - 6px);
-  }
-  44%,
-  56% {
-    left: calc(50% - 6px);
-  }
-  69%,
-  81% {
-    left: calc(75% - 6px);
-  }
-  94%,
   100% {
-    left: calc(100% - 12px);
+    left: var(--l1);
+    opacity: 1;
   }
 }
-
-/* The same packet, but rejected: it reaches the validation gate (Pending) and
-   is dropped — it never proceeds to a block. */
-@keyframes learn-hop-reject {
-  0%,
-  8% {
-    left: 0;
-    opacity: 1;
+@keyframes send-fly-y {
+  0% {
+    transform: translateY(0) scale(1);
   }
-  25%,
-  37% {
-    left: calc(25% - 6px);
-    opacity: 1;
+  16% {
+    transform: translateY(-9px) scale(1.06);
   }
-  55%,
-  70% {
-    left: calc(50% - 6px);
-    opacity: 1;
+  48% {
+    transform: translateY(-30px) scale(1.03);
   }
   86% {
-    left: calc(50% - 6px);
-    opacity: 0.15;
+    transform: translateY(4px) scale(0.97);
   }
   100% {
-    left: calc(50% - 6px);
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* SEND — an input coin destroyed at the transaction (consumed, not delivered). */
+@keyframes forge-melt {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.3);
     opacity: 0;
   }
 }
 
-/* The progress fill growing left→right (scaleX so one keyframe serves any width). */
-@keyframes learn-grow-x {
-  from {
-    transform: scaleX(0);
+/* SEND — a fresh coin struck at the transaction. */
+@keyframes mint-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
   }
-  to {
-    transform: scaleX(1);
+  60% {
+    opacity: 1;
+    transform: scale(1.12);
   }
-}
-
-/* The lifecycle progress line filling left→right. */
-@keyframes learn-fill {
-  from {
-    width: 0%;
-  }
-  to {
-    width: 100%;
-  }
-}
-
-/* A soft ember pulse for the active lifecycle station / committed stamp. */
-@keyframes learn-glow {
-  0%,
   100% {
-    opacity: 0.5;
+    opacity: 1;
+    transform: scale(1);
   }
-  50% {
+}
+
+/* SEND — the fee peeling off toward the miner. */
+@keyframes fee-peel {
+  0% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+  30% {
     opacity: 1;
   }
+  100% {
+    opacity: 0;
+    transform: translateY(22px);
+  }
 }
 
-/* A wrong key bouncing off a lock (rejection). */
-@keyframes learn-reject {
+/* SEND — a wallet absorbing the impact as a coin lands in it. */
+@keyframes piggy-receive {
   0% {
-    transform: translateX(0);
+    transform: translateY(0) scaleY(1);
   }
-  25% {
-    transform: translateX(-6px) rotate(-6deg);
-  }
-  50% {
-    transform: translateX(4px) rotate(4deg);
-  }
-  75% {
-    transform: translateX(-2px);
+  45% {
+    transform: translateY(2px) scaleY(0.95);
   }
   100% {
-    transform: translateX(0);
+    transform: translateY(0) scaleY(1);
+  }
+}
+
+/* LIFECYCLE — the commit payoff: the packet's seal presses on and rests lit. */
+@keyframes commit-seal {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.6);
+  }
+  70% {
+    transform: scale(0.94);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* LIFECYCLE — an invalid packet shudders at the gate, then falls out of the pool. */
+@keyframes packet-reject {
+  0% {
+    transform: translateY(0) rotate(0);
+    opacity: 1;
+  }
+  15% {
+    transform: translateX(-3px) rotate(-5deg);
+  }
+  30% {
+    transform: translateX(3px) rotate(5deg);
+  }
+  45% {
+    transform: translateY(0) rotate(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(34px) rotate(-14deg);
+    opacity: 0;
   }
 }
 
 @layer utilities {
   .learn-anim {
-    animation-duration: 0.6s;
-    animation-timing-function: var(--ease-instrument);
     animation-fill-mode: both;
+    animation-iteration-count: 1;
   }
 }
 
-/* The "amount to send" slider — squared, ember, on-brand (no rounded native UI). */
+/* The sliders — squared, ember, on-brand (no rounded native UI). */
 .learn-range {
   -webkit-appearance: none;
   appearance: none;
@@ -320,4 +202,21 @@
 .learn-range:focus-visible {
   outline: 2px solid var(--color-ember);
   outline-offset: 4px;
+}
+
+/* Reduced motion: no travel, no arcs — destination states appear directly.
+   (The global rule in tokens.css already neutralises durations; these make the
+   intent explicit for the /learn flyers and the lifecycle packet.) */
+@media (prefers-reduced-motion: reduce) {
+  .learn-fly-outer,
+  .learn-fly-inner {
+    animation: none !important;
+    opacity: 1 !important;
+    left: var(--l1) !important;
+    transform: none !important;
+  }
+  .learn-packet {
+    transition: none !important;
+    animation: none !important;
+  }
 }

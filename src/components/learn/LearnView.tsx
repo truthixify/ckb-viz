@@ -1,21 +1,40 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { clsx } from '@/app/clsx'
 import '@/styles/learn.css'
-import { Avatar, CkbCoin, PiggyBank, Padlock, Stamp } from './kit'
+import { Avatar, CellCoin, PiggyBank, Padlock, Stamp, TxPacket, Wallet } from './kit'
 
 /**
- * The /learn walkthrough: an interactive, editable tour of the cell model, with
- * a sidebar of steps you pick from, Alice & Bob as the players, piggy banks for
- * cells, and controls you can change (balance, amount, stored data) — the
- * numbers, the holdings and the flow all update live. Ends at the real visualizer.
+ * The /learn walkthrough: an interactive tour of CKB's cell model.
+ *
+ * Metaphor (see kit.tsx): a PIGGY BANK is a person's wallet — one per person,
+ * it holds coins and persists. A COIN is one cell (one UTXO): value, lock, type.
+ * Paying consumes coins and mints new ones; a new UTXO is a new coin dropped
+ * into a wallet, never a new piggy bank. People are ember/bone avatars + A/B
+ * lock badges; blue/green/red are role markers only (input/output/rejected).
  */
 
 const FEE = 0.001
 const ALICE = 'var(--color-ember)'
-const BOB = 'var(--color-flow-out)'
+const BOB = 'var(--color-bone-dim)'
 
 const fmt = (n: number) =>
   n.toLocaleString(undefined, { maximumFractionDigits: 3, minimumFractionDigits: 0 })
+
+/** Merge CSS custom properties into a style object without widening to `any`. */
+const cssVars = (base: React.CSSProperties, vars: Record<`--${string}`, string | number>): React.CSSProperties =>
+  ({ ...base, ...vars }) as React.CSSProperties
+
+function usePrefersReducedMotion() {
+  const [reduce, setReduce] = useState(false)
+  useEffect(() => {
+    const m = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const on = () => setReduce(m.matches)
+    on()
+    m.addEventListener('change', on)
+    return () => m.removeEventListener('change', on)
+  }, [])
+  return reduce
+}
 
 interface Ctx {
   balance: number
@@ -56,7 +75,6 @@ export function LearnView({ onExplore }: { onExplore: () => void }) {
 
   return (
     <div className="flex flex-col gap-6 min-[820px]:flex-row min-[820px]:gap-10">
-      {/* sidebar — pick a step */}
       <nav className="flex shrink-0 gap-2 overflow-x-auto min-[820px]:w-52 min-[820px]:flex-col min-[820px]:gap-1 min-[820px]:overflow-visible">
         {steps.map((s, k) => {
           const active = k === i
@@ -82,7 +100,6 @@ export function LearnView({ onExplore }: { onExplore: () => void }) {
         })}
       </nav>
 
-      {/* main — the current step */}
       <div className="flex min-w-0 flex-1 flex-col gap-6">
         <div className="flex min-h-[340px] items-center justify-center overflow-hidden border border-hairline bg-panel px-4 py-8 min-[560px]:px-8">
           <div key={step.id} className="w-full">
@@ -187,69 +204,14 @@ function Slider({ label, value, onChange, max, tint = 'var(--color-ember)', unit
   )
 }
 
-/* ── reusable bits ──────────────────────────────────────────────────────── */
-
-function PiggyLabel({ owner, capacity, sub, color, broken, locked, type, size = 92 }: {
-  owner?: string
-  capacity?: number | string
-  sub?: string
-  color: string
-  broken?: boolean
-  locked?: boolean
-  type?: string
-  size?: number
-}) {
+function Stat({ label, value, sub, tint }: { label: string; value: number; sub?: string; tint: string }) {
   return (
-    <div className="flex flex-col items-center gap-1.5">
-      <div className="relative" style={{ opacity: broken ? 0.4 : 1, transition: 'opacity 300ms var(--ease-instrument)' }}>
-        <PiggyBank size={size} color={color} broken={broken ?? false} />
-        {locked && (
-          <span className="absolute -bottom-1 -right-1">
-            <Padlock size={size * 0.26} color={color} />
-          </span>
-        )}
-        {type && (
-          <span className="absolute -top-2 left-1/2 -translate-x-1/2">
-            <Stamp label={type} color={color} />
-          </span>
-        )}
-      </div>
-      {owner && <span className="meta-label-sm">{owner}</span>}
-      {capacity !== undefined && (
-        <span className="mono text-[15px] font-medium text-bone">
-          {typeof capacity === 'number' ? fmt(capacity) : capacity}{' '}
-          <span className="text-[9px] uppercase tracking-[0.1em] text-muted">CKB</span>
-        </span>
-      )}
-      {sub && <span className="mono text-[9px] uppercase tracking-[0.12em] text-muted">{sub}</span>}
-    </div>
-  )
-}
-
-/** A lane of coins continuously flowing between two points. */
-function CoinFlow({ active = true, reverse = false, count = 3 }: { active?: boolean; reverse?: boolean; count?: number }) {
-  if (!active) return <div className="h-px w-full min-w-16" style={{ background: 'var(--color-hairline)' }} />
-  return (
-    <div className="relative h-6 w-full min-w-16">
-      <div className="absolute left-0 right-0 top-1/2 h-px -translate-y-1/2" style={{ background: 'var(--color-hairline)' }} />
-      {Array.from({ length: count }).map((_, k) => (
-        <span
-          key={k}
-          aria-hidden
-          className="absolute top-1/2"
-          style={{
-            marginTop: -6,
-            animationName: 'learn-coin-lane',
-            animationDuration: '1.8s',
-            animationDelay: `${k * 0.6}s`,
-            animationIterationCount: 'infinite',
-            animationTimingFunction: 'linear',
-            animationDirection: reverse ? 'reverse' : 'normal',
-          }}
-        >
-          <CkbCoin size={12} style={{ display: 'block' }} />
-        </span>
-      ))}
+    <div className="flex flex-col items-center gap-1 text-center">
+      <span className="meta-label-sm">{label}</span>
+      <span className="mono text-[18px] font-medium tracking-tight" style={{ color: tint }}>
+        {fmt(value)} <span className="text-[9px] uppercase tracking-[0.1em] text-muted">CKB</span>
+      </span>
+      {sub && <span className="mono text-[9px] uppercase tracking-[0.1em] text-muted">{sub}</span>}
     </div>
   )
 }
@@ -262,46 +224,57 @@ const STEPS: Step[] = [
     label: 'The players',
     kicker: 'Meet the players',
     title: 'Alice wants to pay Bob',
-    body: 'Two people, one payment. Alice holds some CKB and wants to send Bob part of it. Set how much Alice has — you can change it any time, and the rest of the tour updates.',
-    render: ({ balance, setBalance }) => (
-      <div className="flex flex-col items-center gap-8">
-        <div className="flex items-center gap-10">
-          <div className="flex flex-col items-center gap-2">
-            <Avatar name="Alice" color={ALICE} size={72} />
-            <span className="mono text-[13px] text-bone">{fmt(balance)} CKB</span>
+    body: "Two people, two wallets. Alice's wallet holds some coins; Bob's is empty. She wants to send him part of what she has. Change Alice's balance and watch coins appear in her wallet — a balance is just coins.",
+    render: ({ balance, setBalance }) => {
+      const coins = splitBalance(balance)
+      return (
+        <div className="flex flex-col items-center gap-8">
+          <div className="flex items-center gap-8 min-[560px]:gap-12">
+            <div className="flex flex-col items-center gap-2">
+              <Avatar name="Alice" color={ALICE} size={52} />
+              <Wallet owner="" color={ALICE} coins={coins} size={128} />
+            </div>
+            <span className="mono text-[22px]" style={{ color: 'var(--color-ember)' }}>→</span>
+            <div className="flex flex-col items-center gap-2">
+              <Avatar name="Bob" color={BOB} size={52} />
+              <Wallet owner="" color={BOB} coins={[]} size={128} emptyLabel="empty" />
+            </div>
           </div>
-          <span className="mono text-[22px]" style={{ color: 'var(--color-ember)' }}>→</span>
-          <Avatar name="Bob" color={BOB} size={72} />
+          <Stepper label="Alice's balance" value={balance} onChange={setBalance} min={100} max={100000} step={50} />
         </div>
-        <Stepper label="Alice's balance" value={balance} onChange={setBalance} min={100} max={100000} step={50} />
-      </div>
-    ),
+      )
+    },
   },
   {
     id: 'utxo',
     label: 'Why cells',
     kicker: 'Two ways to hold money',
-    title: 'No accounts — only cells',
-    body: 'A bank keeps one balance and edits it when you pay. CKB has no balance anywhere: your money is a set of cells (this is the UTXO idea). To pay, you destroy some cells and create new ones. Press pay and watch both models react.',
+    title: 'No accounts — only coins',
+    body: 'A bank keeps one balance and edits it when you pay. CKB keeps no balance: your money is a set of coins (cells — the UTXO idea). To pay, specific coins are destroyed and new coins are minted. Same wallet, different coins. Press pay and watch both react.',
     render: (ctx) => <AccountsVsCells ctx={ctx} />,
   },
   {
     id: 'cells',
     label: 'Cells hold it',
     kicker: 'Where the money lives',
-    title: 'Value lives in piggy banks — cells',
-    body: "Alice's balance isn't one number — it's held across little locked piggy banks called cells. Each is one UTXO: coins go in, and only Alice's key opens it.",
+    title: 'A balance is a pile of coins',
+    body: "Alice's wallet is one piggy bank, but her balance isn't one number — it's several coins inside it. Each coin is one cell, carrying its value and Alice's lock (the “A”). The wallet is just which coins carry Alice's key.",
     render: ({ balance }) => {
-      const piggies = splitBalance(balance)
+      const coins = splitBalance(balance)
       return (
-        <div className="flex flex-col items-center gap-6">
-          <div className="flex flex-wrap items-end justify-center gap-5">
-            {piggies.map((c, k) => (
-              <PiggyLabel key={k} owner="Alice's cell" capacity={c} color={ALICE} locked size={84} />
-            ))}
+        <div className="flex flex-col items-center gap-5">
+          <Avatar name="Alice" color={ALICE} size={48} />
+          <PiggyBank size={116} color={ALICE} />
+          <div className="flex flex-col items-center gap-2">
+            <span className="meta-label-sm">inside her wallet</span>
+            <div className="flex flex-wrap items-center justify-center gap-4">
+              {coins.map((v, k) => (
+                <CellCoin key={k} value={v} owner="A" size={50} />
+              ))}
+            </div>
           </div>
           <span className="mono text-[11px] text-muted">
-            {piggies.length} cell{piggies.length === 1 ? '' : 's'} · {fmt(balance)} CKB total
+            {coins.length} coin{coins.length === 1 ? '' : 's'} · {fmt(balance)} CKB · each coin is one cell
           </span>
         </div>
       )
@@ -311,12 +284,21 @@ const STEPS: Step[] = [
     id: 'guards',
     label: 'Lock & type',
     kicker: 'The rules',
-    title: 'Every cell has two guards',
-    body: "A cell is guarded by small programs. The lock says who may spend it — only the owner's key opens the piggy bank. The type says what it may become — the rules behind tokens like RUSD.",
+    title: 'Every coin has two guards',
+    body: "A coin is guarded by small programs. The lock says who may spend it — only the owner's key opens it. The type says what it is — the rules behind a token like RUSD. Two guards, one coin. The token lives in the coin's data; it still reserves CKB capacity.",
     render: () => (
-      <div className="flex items-end justify-center gap-10">
-        <PiggyLabel owner="lock · who can spend" capacity="100" color={ALICE} locked size={92} />
-        <PiggyLabel owner="type · the rules" capacity="50" color={BOB} type="RUSD" size={92} />
+      <div className="flex flex-col items-center gap-8">
+        <CellCoin value={100} owner="A" type="RUSD" size={116} />
+        <div className="flex flex-wrap justify-center gap-10">
+          <div className="flex items-center gap-2">
+            <Padlock size={22} color={ALICE} />
+            <span className="mono text-[11px] text-bone-dim">lock · only Alice's key spends it</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Stamp label="RUSD" />
+            <span className="mono text-[11px] text-bone-dim">type · the token's rules</span>
+          </div>
+        </div>
       </div>
     ),
   },
@@ -324,16 +306,16 @@ const STEPS: Step[] = [
     id: 'capacity',
     label: 'Capacity',
     kicker: "CKB's twist",
-    title: 'Capacity is space you reserve',
-    body: 'On CKB, holding value means occupying room. A cell must reserve capacity for everything inside it — one byte costs one CKB — and the smallest possible cell is 61 CKB. Store more data, reserve more capacity. Slide to see it grow.',
+    title: "A coin's value is its room",
+    body: "On CKB a coin's value and its byte-room are one thing: capacity. One byte costs one CKB, and the smallest coin is 61 CKB. Store more data and the coin gets bigger and costlier. Slide to grow it.",
     render: () => <CapacityScene />,
   },
   {
     id: 'send',
     label: 'Send money',
     kicker: 'Making the payment',
-    title: 'Consume cells, create new ones',
-    body: 'To pay Bob, Alice breaks open her cells and packs the coins into new ones — one for Bob, one of change back to herself. The old cells are gone; the new cells are what each person now holds. Drag the amount and watch the holdings settle live.',
+    title: 'Consume coins, mint new ones',
+    body: "To pay Bob, Alice's coins are lifted out of her wallet and destroyed at the transaction; fresh coins are minted — one dropped into Bob's wallet, one of change back into Alice's. Her wallet never breaks. Drag the amount, then press Sign & send to watch the coins move.",
     render: (ctx) => <SendScene ctx={ctx} />,
   },
   {
@@ -341,23 +323,28 @@ const STEPS: Step[] = [
     label: 'Lifecycle',
     kicker: 'From sent to settled',
     title: "A transaction's journey",
-    body: 'Once Alice signs and broadcasts, the transaction travels: it waits in the mempool, gets proposed in a block, then committed for good. A node checks every lock and type along the way — flip to an invalid transaction to see what happens when a guard says no.',
+    body: 'Once Alice signs and broadcasts, the transaction travels: it waits in the mempool, a node checks every lock and type, then it is proposed and committed into a block. Flip to an invalid transaction to see a guard reject it — dropped from the pool, never recorded.',
     render: () => <LifecycleScene />,
   },
   {
     id: 'recap',
     label: 'Recap',
     kicker: "You've got it",
-    title: 'Cells in, cells out',
-    body: 'That is the whole model: value in locked cells, spent by consuming them and creating new ones, guarded by scripts, each reserving its own capacity. Now open a real transaction and read it for yourself.',
+    title: 'Same wallets, new coins',
+    body: "That's the whole model. The two wallets persisted; the coins inside changed. Alice's old coins are gone and she holds her change; Bob holds his new coin. Cells in, cells out. Now open a real transaction and read it yourself.",
     render: ({ balance, amount }) => {
       const send = Math.min(amount, Math.max(0, balance - FEE))
+      const change = Math.max(0, balance - send - FEE)
       return (
-        <div className="flex flex-wrap items-center justify-center gap-6">
-          <PiggyLabel owner="Alice" capacity={balance} color={ALICE} broken size={80} locked />
-          <span className="mono text-[20px]" style={{ color: 'var(--color-ember)' }}>→</span>
-          <PiggyLabel owner="→ Bob" capacity={send} color={BOB} size={80} locked />
-          <PiggyLabel owner="change" capacity={Math.max(0, balance - send - FEE)} color={ALICE} size={80} locked />
+        <div className="flex flex-wrap items-start justify-center gap-10 min-[560px]:gap-16">
+          <div className="flex flex-col items-center gap-2">
+            <Avatar name="Alice" color={ALICE} size={48} />
+            <Wallet owner="holds now" color={ALICE} coins={change > 0 ? [change] : []} size={124} emptyLabel="empty" />
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <Avatar name="Bob" color={BOB} size={48} />
+            <Wallet owner="holds now" color={BOB} coins={send > 0 ? [send] : []} size={124} emptyLabel="empty" />
+          </div>
         </div>
       )
     },
@@ -369,44 +356,50 @@ const STEPS: Step[] = [
 function AccountsVsCells({ ctx }: { ctx: Ctx }) {
   const [paid, setPaid] = useState(false)
   const { balance, amount } = ctx
+  const inputs = splitBalance(balance)
   const send = Math.min(amount, Math.max(0, balance - FEE))
   const change = Math.max(0, balance - send - FEE)
 
   return (
     <div className="flex flex-col items-center gap-6">
-      <div className="grid w-full grid-cols-1 items-stretch gap-4 min-[620px]:grid-cols-[1fr_auto_1fr]">
-        {/* account model */}
-        <div className="flex flex-col items-center gap-3 border border-hairline bg-inset px-4 py-5">
+      <div className="grid w-full grid-cols-1 items-stretch gap-4 min-[680px]:grid-cols-[1fr_auto_1.3fr]">
+        <div className="flex flex-col items-center justify-center gap-3 border border-hairline bg-inset px-4 py-5">
           <span className="meta-label-sm" style={{ color: 'var(--color-bone-dim)' }}>Account model · a bank</span>
-          <span key={paid ? 'a1' : 'a0'} className="learn-anim mono text-[30px] font-medium tracking-tight text-bone" style={{ animationName: 'learn-pop' }}>
-            {fmt(paid ? change + 0 : balance)} <span className="text-[11px] uppercase tracking-[0.1em] text-muted">CKB</span>
+          <span key={paid ? 'a1' : 'a0'} className="learn-anim mono text-[30px] font-medium tracking-tight text-bone" style={{ animationName: 'learn-pop', animationDuration: '260ms' }}>
+            {fmt(paid ? change : balance)} <span className="text-[11px] uppercase tracking-[0.1em] text-muted">CKB</span>
           </span>
           <span className="mono text-[10px] uppercase tracking-[0.12em]" style={{ color: paid ? 'var(--color-alarm)' : 'var(--color-muted)' }}>
             {paid ? `− ${fmt(send)} paid to Bob` : "Alice's balance"}
           </span>
-          <span className="mt-1 text-center text-[11px] leading-relaxed text-muted">One running number. Paying edits it in place.</span>
+          <span className="mt-1 text-center text-[11px] leading-relaxed text-muted">One number, edited in place.</span>
         </div>
 
         <div className="flex items-center justify-center">
           <span className="mono text-[11px] uppercase tracking-[0.14em] text-muted">vs</span>
         </div>
 
-        {/* cell model */}
         <div className="flex flex-col items-center gap-3 border px-4 py-5" style={{ borderColor: 'color-mix(in oklab, var(--color-ember) 30%, transparent)', background: 'color-mix(in oklab, var(--color-ember) 5%, transparent)' }}>
           <span className="meta-label-sm" style={{ color: 'var(--color-ember)' }}>Cell model · CKB</span>
-          <div className="flex min-h-[92px] flex-wrap items-center justify-center gap-3">
+          <div className="flex min-h-[112px] items-center justify-center gap-3">
             {!paid ? (
-              <PiggyLabel capacity={balance} color={ALICE} locked size={64} sub="Alice · 1 cell" />
+              <Wallet owner="Alice" color={ALICE} coins={inputs} size={116} />
             ) : (
-              <>
-                <PiggyLabel capacity={balance} color={ALICE} broken size={52} sub="destroyed" />
-                <span className="mono text-[16px]" style={{ color: 'var(--color-ember)' }}>→</span>
-                <PiggyLabel capacity={send} color={BOB} locked size={52} sub="Bob" />
-                <PiggyLabel capacity={change} color={ALICE} locked size={52} sub="Alice" />
-              </>
+              <div className="flex items-center gap-2">
+                <div className="flex flex-col items-center gap-1">
+                  <span className="flex gap-0.5">
+                    {inputs.map((v, k) => (
+                      <CellCoin key={k} value={v} role="input" consumed size={26} showBadge={false} />
+                    ))}
+                  </span>
+                  <span className="mono text-[8px] uppercase tracking-[0.1em] text-muted">destroyed</span>
+                </div>
+                <span className="mono text-[14px]" style={{ color: 'var(--color-ember)' }}>→</span>
+                <Wallet owner="Bob" color={BOB} coins={send > 0 ? [send] : []} size={92} coinRole="output" emptyLabel="—" />
+                <Wallet owner="Alice" color={ALICE} coins={change > 0 ? [change] : []} size={92} coinRole="output" emptyLabel="—" />
+              </div>
             )}
           </div>
-          <span className="text-center text-[11px] leading-relaxed text-muted">No balance. Old cell destroyed; new cells created.</span>
+          <span className="text-center text-[11px] leading-relaxed text-muted">Coins destroyed; new coins minted.</span>
         </div>
       </div>
 
@@ -422,7 +415,7 @@ function AccountsVsCells({ ctx }: { ctx: Ctx }) {
   )
 }
 
-/* ── capacity is space ──────────────────────────────────────────────────── */
+/* ── capacity ───────────────────────────────────────────────────────────── */
 
 const BASE_CAPACITY = 61
 
@@ -439,12 +432,12 @@ function CapacityScene() {
   const barMax = BASE_CAPACITY + 400
   const basePct = (BASE_CAPACITY / barMax) * 100
   const dataPct = (bytes / barMax) * 100
+  const coinSize = Math.round(58 + (bytes / 400) * 78)
 
   return (
     <div className="flex w-full max-w-xl flex-col items-center gap-6">
-      <div className="flex items-baseline gap-2">
-        <span className="mono text-[40px] font-medium leading-none tracking-tight text-bone">{fmt(total)}</span>
-        <span className="mono text-[12px] uppercase tracking-[0.1em] text-muted">CKB reserved</span>
+      <div className="flex items-center gap-5">
+        <CellCoin value={total} size={coinSize} style={{ transition: 'width 200ms ease-out, height 200ms ease-out' }} />
       </div>
 
       <div className="w-full">
@@ -469,72 +462,159 @@ function CapacityScene() {
   )
 }
 
-/* ── the payment: flow + who holds what ─────────────────────────────────── */
+/* ── the payment: coins moving between wallets ──────────────────────────── */
+
+const ALICE_X = '17%'
+const FORGE_X = '50%'
+const BOB_X = '83%'
+const FLY_TOP = '60%'
+const FLY_COIN = 34
+const STAG = 90
+const ARRIVE = 640
 
 function SendScene({ ctx }: { ctx: Ctx }) {
   const { balance, amount, setAmount, setBalance } = ctx
+  const reduce = usePrefersReducedMotion()
+  const [playing, setPlaying] = useState(false)
+  const [flight, setFlight] = useState(0)
+  const timer = useRef<number | undefined>(undefined)
+
   const inputs = splitBalance(balance)
+  const nIn = inputs.length
   const maxSend = Math.max(0, balance - FEE)
   const send = Math.min(amount, maxSend)
   const change = Math.max(0, balance - send - FEE)
 
+  const deliverStart = nIn * STAG + ARRIVE + 60
+  const playMs = deliverStart + ARRIVE + 260
+
+  useEffect(() => () => window.clearTimeout(timer.current), [])
+
+  const play = () => {
+    if (reduce || send <= 0) return
+    setFlight((f) => f + 1)
+    setPlaying(true)
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => setPlaying(false), playMs)
+  }
+
+  const aliceCoins = playing ? [] : change > 0 ? [change] : []
+  const bobCoins = playing ? [] : send > 0 ? [send] : []
+
   return (
     <div className="flex w-full flex-col gap-5">
-      {/* the transaction: Alice's input cells → tx → new cells */}
-      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 min-[560px]:gap-4">
-        <div className="flex flex-col items-center gap-2">
-          <Avatar name="Alice" color={ALICE} size={48} />
-          <div className="flex flex-col items-center gap-1">
-            {inputs.map((c, k) => (
-              <PiggyLabel key={k} capacity={c} color={ALICE} broken size={44} />
+      <div className="relative" style={{ minHeight: 172 }}>
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+          <div className="flex flex-col items-center gap-1.5">
+            <Avatar name="Alice" color={ALICE} size={44} />
+            <Wallet owner="" color={ALICE} coins={aliceCoins} size={104} emptyLabel="" receiveKey={playing ? 0 : flight} />
+          </div>
+
+          <div className="flex flex-col items-center gap-2 px-2">
+            <span
+              className="mono grid place-items-center border px-3 py-2 text-[9px] uppercase tracking-[0.14em]"
+              style={{ color: 'var(--color-ember)', borderColor: 'var(--color-ember)', minWidth: 92 }}
+            >
+              transaction
+            </span>
+            <span className="mono text-[9px] uppercase tracking-[0.1em] text-muted">fee {FEE} → miner</span>
+          </div>
+
+          <div className="flex flex-col items-center gap-1.5">
+            <Avatar name="Bob" color={BOB} size={44} />
+            <Wallet owner="" color={BOB} coins={bobCoins} size={104} emptyLabel="empty" receiveKey={playing ? 0 : flight} />
+          </div>
+        </div>
+
+        {playing && !reduce && (
+          <div key={flight} className="pointer-events-none absolute inset-0">
+            {inputs.map((v, k) => (
+              <span
+                key={`in-${k}`}
+                className="learn-fly-outer"
+                style={cssVars(
+                  {
+                    position: 'absolute',
+                    top: FLY_TOP,
+                    marginLeft: -FLY_COIN / 2,
+                    marginTop: -FLY_COIN / 2,
+                    animation: `send-fly-x ${ARRIVE}ms cubic-bezier(.45,0,.55,1) ${k * STAG}ms both, forge-melt 260ms var(--ease-instrument) ${k * STAG + ARRIVE}ms both`,
+                  },
+                  { '--l0': ALICE_X, '--l1': FORGE_X },
+                )}
+              >
+                <span className="learn-fly-inner" style={{ display: 'block', animation: `send-fly-y ${ARRIVE}ms cubic-bezier(.34,0,.5,1) ${k * STAG}ms both` }}>
+                  <CellCoin value={v} role="input" size={FLY_COIN} showBadge={false} />
+                </span>
+              </span>
             ))}
-          </div>
-          <span className="mono text-[9px] uppercase tracking-[0.1em] text-muted">spends {inputs.length} cell{inputs.length === 1 ? '' : 's'}</span>
-        </div>
 
-        <div className="flex flex-col items-center gap-2">
-          <CoinFlow active={send > 0} />
-          <span className="mono border px-3 py-1.5 text-[9px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-ember)', borderColor: 'var(--color-ember)' }}>
-            transaction
-          </span>
-          <span className="mono text-[10px] text-muted">fee {FEE}</span>
-        </div>
+            {send > 0 && (
+              <span
+                key="out-bob"
+                className="learn-fly-outer"
+                style={cssVars(
+                  {
+                    position: 'absolute',
+                    top: FLY_TOP,
+                    marginLeft: -FLY_COIN / 2,
+                    marginTop: -FLY_COIN / 2,
+                    animation: `send-fly-x ${ARRIVE}ms cubic-bezier(.45,0,.55,1) ${deliverStart}ms both`,
+                  },
+                  { '--l0': FORGE_X, '--l1': BOB_X },
+                )}
+              >
+                <span className="learn-fly-inner" style={{ display: 'block', animation: `send-fly-y ${ARRIVE}ms cubic-bezier(.34,0,.5,1) ${deliverStart}ms both` }}>
+                  <CellCoin value={send} owner="B" role="output" size={FLY_COIN} />
+                </span>
+              </span>
+            )}
 
-        <div className="flex flex-col items-center gap-3">
-          <div className="flex flex-col items-center gap-1">
-            <Avatar name="Bob" color={BOB} size={40} />
-            <PiggyLabel capacity={send} color={BOB} locked size={48} sub="new cell" />
+            {change > 0 && (
+              <span
+                key="out-change"
+                className="learn-fly-outer"
+                style={cssVars(
+                  {
+                    position: 'absolute',
+                    top: FLY_TOP,
+                    marginLeft: -FLY_COIN / 2,
+                    marginTop: -FLY_COIN / 2,
+                    animation: `send-fly-x ${ARRIVE}ms cubic-bezier(.45,0,.55,1) ${deliverStart}ms both`,
+                  },
+                  { '--l0': FORGE_X, '--l1': ALICE_X },
+                )}
+              >
+                <span className="learn-fly-inner" style={{ display: 'block', animation: `send-fly-y ${ARRIVE}ms cubic-bezier(.34,0,.5,1) ${deliverStart}ms both` }}>
+                  <CellCoin value={change} owner="A" role="output" size={FLY_COIN} />
+                </span>
+              </span>
+            )}
           </div>
-          <PiggyLabel owner="↩ Alice's change" capacity={change} color={ALICE} locked size={48} sub="new cell" />
-        </div>
+        )}
       </div>
 
-      {/* holdings ledger: sent + who holds what now */}
       <div className="grid grid-cols-3 gap-2 border-t border-hairline pt-4">
         <Stat label="Sent to Bob" value={send} tint="var(--color-flow-out)" />
-        <Stat label="Alice holds now" value={change} sub="1 cell" tint={ALICE} />
-        <Stat label="Bob holds now" value={send} sub="1 cell" tint="var(--color-flow-out)" />
+        <Stat label="Alice holds now" value={change} sub={change > 0 ? '1 coin' : 'no coins'} tint={ALICE} />
+        <Stat label="Bob holds now" value={send} sub={send > 0 ? '1 coin' : 'no coins'} tint="var(--color-flow-out)" />
       </div>
 
-      {/* controls */}
-      <div className="flex flex-col gap-4 border-t border-hairline pt-4 min-[560px]:flex-row min-[560px]:items-end min-[560px]:gap-8">
-        <div className="min-[560px]:flex-1">
+      <div className="flex flex-col gap-4 border-t border-hairline pt-4 min-[620px]:flex-row min-[620px]:items-end min-[620px]:gap-6">
+        <div className="min-[620px]:flex-1">
           <Slider label="Alice sends Bob" value={send} onChange={setAmount} max={maxSend} />
         </div>
         <Stepper label="Alice's balance" value={balance} onChange={setBalance} min={100} max={100000} step={50} />
+        <button
+          type="button"
+          onClick={play}
+          disabled={playing || send <= 0}
+          className="mono h-9 shrink-0 border px-4 text-[11px] font-medium uppercase tracking-[0.12em] transition-colors disabled:opacity-40"
+          style={{ borderColor: 'var(--color-ember)', color: 'var(--color-ember)' }}
+        >
+          {playing ? 'Sending…' : '▶ Sign & send'}
+        </button>
       </div>
-    </div>
-  )
-}
-
-function Stat({ label, value, sub, tint }: { label: string; value: number; sub?: string; tint: string }) {
-  return (
-    <div className="flex flex-col items-center gap-1 text-center">
-      <span className="meta-label-sm">{label}</span>
-      <span className="mono text-[18px] font-medium tracking-tight" style={{ color: tint }}>
-        {fmt(value)} <span className="text-[9px] uppercase tracking-[0.1em] text-muted">CKB</span>
-      </span>
-      {sub && <span className="mono text-[9px] uppercase tracking-[0.1em] text-muted">{sub}</span>}
     </div>
   )
 }
@@ -548,17 +628,48 @@ const STATIONS = [
   { label: 'Proposed', sub: 'in a block' },
   { label: 'Committed', sub: 'sealed' },
 ]
+const GATE = 2
 
 function LifecycleScene() {
+  const reduce = usePrefersReducedMotion()
   const [mode, setMode] = useState<'valid' | 'invalid'>('valid')
+  const [stage, setStage] = useState(0)
+  const [rejected, setRejected] = useState(false)
   const invalid = mode === 'invalid'
-  const gate = 2 // Pending — where a node validates and can reject
-  const reached = (k: number) => (invalid ? k <= gate : true)
-  const fillWidth = invalid ? '50%' : '100%'
-  const fillColor = invalid ? 'var(--color-alarm)' : 'var(--color-ember)'
+
+  useEffect(() => {
+    setStage(0)
+    setRejected(false)
+    if (reduce) {
+      if (invalid) {
+        setStage(GATE)
+        setRejected(true)
+      } else {
+        setStage(STATIONS.length - 1)
+      }
+      return
+    }
+    const timers: number[] = []
+    const at = (fn: () => void, ms: number) => timers.push(window.setTimeout(fn, ms))
+    if (invalid) {
+      at(() => setStage(1), 450)
+      at(() => setStage(GATE), 1150)
+      at(() => setRejected(true), 1650)
+    } else {
+      at(() => setStage(1), 450)
+      at(() => setStage(2), 1150)
+      at(() => setStage(3), 1900)
+      at(() => setStage(4), 2550)
+    }
+    return () => timers.forEach((t) => window.clearTimeout(t))
+  }, [mode, reduce, invalid])
+
+  const committed = !invalid && stage >= STATIONS.length - 1
+  const packetStage = invalid ? Math.min(stage, GATE) : stage
+  const fillPct = invalid ? Math.min(stage, GATE) * 25 : stage * 25
 
   return (
-    <div className="flex w-full flex-col items-center gap-7">
+    <div className="flex w-full flex-col items-center gap-8">
       <div className="inline-flex border border-border">
         {(['valid', 'invalid'] as const).map((m) => (
           <button
@@ -577,43 +688,36 @@ function LifecycleScene() {
         ))}
       </div>
 
-      <div key={mode} className="relative w-full px-1">
-        {/* base track */}
-        <div className="absolute left-1 right-1 top-[9px] h-px bg-hairline" />
-        {/* progress fill */}
+      <div className="relative w-full px-1 pt-8">
+        <div className="absolute left-1 right-1 top-[calc(2rem+9px)] h-px bg-hairline" />
         <div
-          className="learn-anim absolute left-1 top-[9px] h-px origin-left"
-          style={{ width: `calc(${fillWidth} - 8px)`, background: fillColor, animationName: 'learn-grow-x', animationDuration: '1.6s', animationTimingFunction: 'ease-in-out' }}
+          className="absolute left-1 top-[calc(2rem+9px)] h-px"
+          style={{ width: `${fillPct}%`, maxWidth: 'calc(100% - 8px)', background: invalid ? 'var(--color-alarm)' : 'var(--color-ember)', transition: 'width 560ms cubic-bezier(.5,0,.2,1)' }}
         />
-        {/* travelling packet */}
-        <div className="pointer-events-none absolute left-1 right-1 top-[9px]">
-          <span
-            className="absolute -top-[6px]"
-            style={{ animationName: invalid ? 'learn-hop-reject' : 'learn-hop', animationDuration: invalid ? '4s' : '5.5s', animationIterationCount: 'infinite', animationTimingFunction: 'linear' }}
-          >
-            <CkbCoin size={12} style={{ display: 'block' }} />
-          </span>
-        </div>
+
+        <span
+          className="learn-packet absolute"
+          style={{
+            top: 0,
+            left: `${packetStage * 25}%`,
+            marginLeft: -20,
+            transition: 'left 560ms cubic-bezier(.5,0,.2,1)',
+            animation: rejected ? 'packet-reject 900ms cubic-bezier(.5,.05,.9,.5) both' : committed ? 'commit-seal 520ms cubic-bezier(.3,1.4,.5,1) both' : undefined,
+          }}
+        >
+          <TxPacket size={40} validated={!invalid && stage >= GATE} rejected={rejected} />
+        </span>
 
         <div className="relative flex justify-between">
           {STATIONS.map((s, k) => {
-            const on = reached(k)
-            const isCommitted = k === STATIONS.length - 1 && !invalid
-            const isGate = k === gate && invalid
+            const on = invalid ? k <= GATE : stage >= k
+            const isCommitted = k === STATIONS.length - 1 && committed
+            const isGate = k === GATE && rejected
             const tint = isCommitted ? 'var(--color-flow-out)' : isGate ? 'var(--color-alarm)' : on ? 'var(--color-ember)' : 'var(--color-muted)'
             return (
-              <div key={s.label} className="flex flex-col items-center gap-2" style={{ maxWidth: 84 }}>
-                <span className="relative inline-flex h-4 w-4 items-center justify-center border" style={{ borderColor: on ? tint : 'var(--color-border)', background: 'var(--color-panel)' }}>
-                  <span
-                    style={{
-                      position: 'absolute',
-                      inset: '2px',
-                      background: on ? tint : 'transparent',
-                      animationName: isCommitted || isGate ? 'learn-glow' : 'none',
-                      animationDuration: '1.4s',
-                      animationIterationCount: 'infinite',
-                    }}
-                  />
+              <div key={s.label} className="flex flex-col items-center gap-2" style={{ maxWidth: 88 }}>
+                <span className="inline-flex h-4 w-4 items-center justify-center border" style={{ borderColor: on ? tint : 'var(--color-border)', background: 'var(--color-panel)' }}>
+                  <span style={{ position: 'absolute', width: 8, height: 8, background: on ? tint : 'transparent', transition: 'background 220ms ease' }} />
                 </span>
                 <span className="mono text-[9px] uppercase tracking-[0.1em]" style={{ color: on ? (isCommitted ? 'var(--color-flow-out)' : isGate ? 'var(--color-alarm)' : 'var(--color-bone-dim)') : 'var(--color-muted)' }}>
                   {s.label}
@@ -645,7 +749,6 @@ function LifecycleScene() {
 /* ── helpers ────────────────────────────────────────────────────────────── */
 
 function splitBalance(balance: number): number[] {
-  // Illustrative: show the balance as a handful of cells (not one number).
   if (balance <= 150) return [balance]
   if (balance <= 400) return [Math.round(balance * 0.6), Math.round(balance * 0.4)]
   const a = Math.round(balance * 0.45)
