@@ -161,11 +161,107 @@
   }
 }
 
+/* LIFECYCLE liveness — a pulse ring on the active station, a gentle idle bob on
+   the travelling packet, and a twinkle on the other mempool transactions. */
+@keyframes lc-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+@keyframes lc-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+@keyframes lc-twinkle {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 @layer utilities {
   .learn-anim {
     animation-fill-mode: both;
     animation-iteration-count: 1;
   }
+}
+
+/* A coin (cell) is inspectable — hover or focus reveals its details. */
+.learn-cell {
+  cursor: help;
+  outline: none;
+}
+.learn-cell:focus-visible {
+  outline: 2px solid var(--color-ember);
+  outline-offset: 3px;
+}
+.learn-tip {
+  position: absolute;
+  bottom: calc(100% + 9px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 156px;
+  padding: 8px 10px;
+  background: var(--color-panel-2);
+  border: 1px solid var(--color-border);
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 120ms var(--ease-instrument),
+    transform 120ms var(--ease-instrument);
+}
+.learn-cell:hover .learn-tip,
+.learn-cell:focus-visible .learn-tip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+.learn-tip-head {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--color-ember);
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--color-hairline);
+}
+.learn-tip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.learn-tip-k {
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 9px;
+  align-self: center;
+}
+.learn-tip-v {
+  color: var(--color-bone);
 }
 
 /* The sliders — squared, ember, on-brand (no rounded native UI). */

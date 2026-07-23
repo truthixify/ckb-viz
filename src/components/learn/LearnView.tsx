@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { clsx } from '@/app/clsx'
 import '@/styles/learn.css'
-import { Avatar, CellCoin, PiggyBank, Padlock, Stamp, TxPacket, Wallet } from './kit'
+import { Avatar, BankBuilding, CellCoin, PiggyBank, Padlock, Stamp, TxPacket, Wallet } from './kit'
 
 /**
  * The /learn walkthrough: an interactive tour of CKB's cell model.
  *
- * Metaphor (see kit.tsx): a PIGGY BANK is a person's wallet — one per person,
+ * Metaphor (see kit.tsx): a PIGGY BANK is a person's wallet - one per person,
  * it holds coins and persists. A COIN is one cell (one UTXO): value, lock, type.
  * Paying consumes coins and mints new ones; a new UTXO is a new coin dropped
  * into a wallet, never a new piggy bank. People are ember/bone avatars + A/B
@@ -101,7 +101,7 @@ export function LearnView({ onExplore }: { onExplore: () => void }) {
       </nav>
 
       <div className="flex min-w-0 flex-1 flex-col gap-6">
-        <div className="flex min-h-[340px] items-center justify-center overflow-hidden border border-hairline bg-panel px-4 py-8 min-[560px]:px-8">
+        <div className="relative flex min-h-[340px] items-center justify-center overflow-visible border border-hairline bg-panel px-4 py-8 min-[560px]:px-8">
           <div key={step.id} className="w-full">
             {step.render(ctx)}
           </div>
@@ -220,11 +220,19 @@ function Stat({ label, value, sub, tint }: { label: string; value: number; sub?:
 
 const STEPS: Step[] = [
   {
+    id: 'utxo',
+    label: 'Bank vs piggy',
+    kicker: 'The big idea',
+    title: 'A bank account, or a piggy bank?',
+    body: 'Most money apps work like a bank account. The bank stores one number, your balance, and rewrites that number every time you pay. CKB does not work that way. Your money is a set of separate coins that you keep, the way a piggy bank holds coins. To pay someone you do not edit a number. You take some of your coins, destroy them, and create brand new coins: one for the person you are paying and one that gives back your change. Each coin is called a cell, and this way of holding money is called the UTXO model. Press Pay to compare the two.',
+    render: (ctx) => <AccountsVsCells ctx={ctx} />,
+  },
+  {
     id: 'players',
     label: 'The players',
-    kicker: 'Meet the players',
-    title: 'Alice wants to pay Bob',
-    body: "Two people, two wallets. Alice's wallet holds some coins; Bob's is empty. She wants to send him part of what she has. Change Alice's balance and watch coins appear in her wallet — a balance is just coins.",
+    kicker: 'The people',
+    title: 'Alice is going to pay Bob',
+    body: "Meet Alice and Bob. Each person keeps their coins in their own piggy bank, which we will call a wallet. Right now Alice holds some coins and Bob holds none. Over the next steps Alice will send Bob part of what she has. Use the control to change how much Alice starts with, and notice that her balance is simply the coins in her wallet added together. Hover over any coin to see what it holds.",
     render: ({ balance, setBalance }) => {
       const coins = splitBalance(balance)
       return (
@@ -246,19 +254,11 @@ const STEPS: Step[] = [
     },
   },
   {
-    id: 'utxo',
-    label: 'Why cells',
-    kicker: 'Two ways to hold money',
-    title: 'No accounts — only coins',
-    body: 'A bank keeps one balance and edits it when you pay. CKB keeps no balance: your money is a set of coins (cells — the UTXO idea). To pay, specific coins are destroyed and new coins are minted. Same wallet, different coins. Press pay and watch both react.',
-    render: (ctx) => <AccountsVsCells ctx={ctx} />,
-  },
-  {
     id: 'cells',
-    label: 'Cells hold it',
-    kicker: 'Where the money lives',
-    title: 'A balance is a pile of coins',
-    body: "Alice's wallet is one piggy bank, but her balance isn't one number — it's several coins inside it. Each coin is one cell, carrying its value and Alice's lock (the “A”). The wallet is just which coins carry Alice's key.",
+    label: 'What a balance is',
+    kicker: 'Inside the wallet',
+    title: 'A balance is a stack of coins',
+    body: "Alice has one wallet, but her balance is not stored as a single number. It is made of several separate coins sitting inside the wallet. Each coin is one cell. A cell records how much it is worth and whose key is allowed to spend it, shown here as the letter A for Alice. Add the coins together and you get her balance. Hover over a coin to inspect it.",
     render: ({ balance }) => {
       const coins = splitBalance(balance)
       return (
@@ -269,7 +269,7 @@ const STEPS: Step[] = [
             <span className="meta-label-sm">inside her wallet</span>
             <div className="flex flex-wrap items-center justify-center gap-4">
               {coins.map((v, k) => (
-                <CellCoin key={k} value={v} owner="A" size={50} />
+                <CellCoin key={k} value={v} owner="A" size={50} interactive />
               ))}
             </div>
           </div>
@@ -282,21 +282,21 @@ const STEPS: Step[] = [
   },
   {
     id: 'guards',
-    label: 'Lock & type',
-    kicker: 'The rules',
-    title: 'Every coin has two guards',
-    body: "A coin is guarded by small programs. The lock says who may spend it — only the owner's key opens it. The type says what it is — the rules behind a token like RUSD. Two guards, one coin. The token lives in the coin's data; it still reserves CKB capacity.",
+    label: 'A coin’s rules',
+    kicker: 'What guards a coin',
+    title: 'Every coin carries its own rules',
+    body: "A cell is more than an amount. It carries two small programs. The first is the lock, which decides who is allowed to spend the coin: only the person holding the matching key. The second is the type, which decides what the coin is and what it may become, for example a token such as RUSD. A plain coin has only a lock. A token coin has both a lock and a type, and it still reserves ordinary CKB in order to exist.",
     render: () => (
       <div className="flex flex-col items-center gap-8">
-        <CellCoin value={100} owner="A" type="RUSD" size={116} />
+        <CellCoin value={100} owner="A" type="RUSD" size={116} interactive />
         <div className="flex flex-wrap justify-center gap-10">
           <div className="flex items-center gap-2">
             <Padlock size={22} color={ALICE} />
-            <span className="mono text-[11px] text-bone-dim">lock · only Alice's key spends it</span>
+            <span className="mono text-[11px] text-bone-dim">Lock: who is allowed to spend it</span>
           </div>
           <div className="flex items-center gap-2">
             <Stamp label="RUSD" />
-            <span className="mono text-[11px] text-bone-dim">type · the token's rules</span>
+            <span className="mono text-[11px] text-bone-dim">Type: what the coin is</span>
           </div>
         </div>
       </div>
@@ -304,34 +304,34 @@ const STEPS: Step[] = [
   },
   {
     id: 'capacity',
-    label: 'Capacity',
-    kicker: "CKB's twist",
-    title: "A coin's value is its room",
-    body: "On CKB a coin's value and its byte-room are one thing: capacity. One byte costs one CKB, and the smallest coin is 61 CKB. Store more data and the coin gets bigger and costlier. Slide to grow it.",
+    label: 'Why coins have a size',
+    kicker: 'Storage costs CKB',
+    title: 'A coin reserves space, and space costs CKB',
+    body: 'Holding a coin means reserving room on the blockchain to store it. That room is called capacity, and it is measured in CKB, where one byte of storage costs one CKB. Even an empty coin needs about 61 CKB just for its basic fields. If you store more inside a coin, such as a token amount or a name, it has to reserve more CKB. Drag the slider to add data and watch the coin grow.',
     render: () => <CapacityScene />,
   },
   {
     id: 'send',
-    label: 'Send money',
-    kicker: 'Making the payment',
-    title: 'Consume coins, mint new ones',
-    body: "To pay Bob, Alice's coins are lifted out of her wallet and destroyed at the transaction; fresh coins are minted — one dropped into Bob's wallet, one of change back into Alice's. Her wallet never breaks. Drag the amount, then press Sign & send to watch the coins move.",
+    label: 'Making a payment',
+    kicker: 'Old coins in, new coins out',
+    title: 'How a payment actually works',
+    body: "Here is the payment itself. Alice's coins are taken out of her wallet and destroyed by the transaction. In their place the transaction creates new coins: one for Bob, and one that returns Alice's change. A small amount called the fee is kept by the miner who records the transaction, which is why the new coins add up to a little less than the old ones. Drag the amount to choose how much Alice sends, then press Sign and send to watch the coins move. The totals below always show what each person holds afterwards.",
     render: (ctx) => <SendScene ctx={ctx} />,
   },
   {
     id: 'lifecycle',
-    label: 'Lifecycle',
-    kicker: 'From sent to settled',
-    title: "A transaction's journey",
-    body: 'Once Alice signs and broadcasts, the transaction travels: it waits in the mempool, a node checks every lock and type, then it is proposed and committed into a block. Flip to an invalid transaction to see a guard reject it — dropped from the pool, never recorded.',
+    label: 'The life of a tx',
+    kicker: 'From signed to settled',
+    title: 'What happens after you press send',
+    body: 'A transaction does not settle the instant it is signed. It moves through several stages first. It is broadcast to the network, waits in a shared pool while a node checks its rules, and is then recorded into a block in two steps. Click any stage on the road to read what happens there. Switch to an invalid transaction to see what a node does when a rule fails.',
     render: () => <LifecycleScene />,
   },
   {
     id: 'recap',
     label: 'Recap',
-    kicker: "You've got it",
+    kicker: 'Putting it together',
     title: 'Same wallets, new coins',
-    body: "That's the whole model. The two wallets persisted; the coins inside changed. Alice's old coins are gone and she holds her change; Bob holds his new coin. Cells in, cells out. Now open a real transaction and read it yourself.",
+    body: 'That is the whole idea. On CKB your money lives in coins called cells. Every coin has a value and a lock, and some coins also carry a type. To pay someone, a transaction destroys some of your coins and creates new ones, while the wallets themselves just hold whatever coins each person owns. You now know enough to open a real transaction and read it.',
     render: ({ balance, amount }) => {
       const send = Math.min(amount, Math.max(0, balance - FEE))
       const change = Math.max(0, balance - send - FEE)
@@ -363,15 +363,19 @@ function AccountsVsCells({ ctx }: { ctx: Ctx }) {
   return (
     <div className="flex flex-col items-center gap-6">
       <div className="grid w-full grid-cols-1 items-stretch gap-4 min-[680px]:grid-cols-[1fr_auto_1.3fr]">
-        <div className="flex flex-col items-center justify-center gap-3 border border-hairline bg-inset px-4 py-5">
-          <span className="meta-label-sm" style={{ color: 'var(--color-bone-dim)' }}>Account model · a bank</span>
-          <span key={paid ? 'a1' : 'a0'} className="learn-anim mono text-[30px] font-medium tracking-tight text-bone" style={{ animationName: 'learn-pop', animationDuration: '260ms' }}>
-            {fmt(paid ? change : balance)} <span className="text-[11px] uppercase tracking-[0.1em] text-muted">CKB</span>
-          </span>
-          <span className="mono text-[10px] uppercase tracking-[0.12em]" style={{ color: paid ? 'var(--color-alarm)' : 'var(--color-muted)' }}>
-            {paid ? `− ${fmt(send)} paid to Bob` : "Alice's balance"}
-          </span>
-          <span className="mt-1 text-center text-[11px] leading-relaxed text-muted">One number, edited in place.</span>
+        <div className="flex flex-col items-center justify-between gap-3 border border-hairline bg-inset px-4 py-5">
+          <span className="meta-label-sm" style={{ color: 'var(--color-bone-dim)' }}>The account model · a bank</span>
+          <BankBuilding size={92} />
+          <div className="flex w-full flex-col items-center gap-1 border-t border-hairline pt-3">
+            <span className="meta-label-sm">Alice's balance</span>
+            <span key={paid ? 'a1' : 'a0'} className="learn-anim mono text-[26px] font-medium tracking-tight text-bone" style={{ animationName: 'learn-pop', animationDuration: '260ms' }}>
+              {fmt(paid ? change : balance)} <span className="text-[11px] uppercase tracking-[0.1em] text-muted">CKB</span>
+            </span>
+            <span className="mono text-[10px] uppercase tracking-[0.12em]" aria-hidden={!paid} style={{ color: 'var(--color-alarm)' }}>
+              {paid ? `paid ${fmt(send)} to Bob` : ' '}
+            </span>
+          </div>
+          <span className="text-center text-[11px] leading-relaxed text-muted">The bank keeps one number and rewrites it.</span>
         </div>
 
         <div className="flex items-center justify-center">
@@ -379,7 +383,7 @@ function AccountsVsCells({ ctx }: { ctx: Ctx }) {
         </div>
 
         <div className="flex flex-col items-center gap-3 border px-4 py-5" style={{ borderColor: 'color-mix(in oklab, var(--color-ember) 30%, transparent)', background: 'color-mix(in oklab, var(--color-ember) 5%, transparent)' }}>
-          <span className="meta-label-sm" style={{ color: 'var(--color-ember)' }}>Cell model · CKB</span>
+          <span className="meta-label-sm" style={{ color: 'var(--color-ember)' }}>The UTXO model · a piggy bank</span>
           <div className="flex min-h-[112px] items-center justify-center gap-3">
             {!paid ? (
               <Wallet owner="Alice" color={ALICE} coins={inputs} size={116} />
@@ -388,18 +392,18 @@ function AccountsVsCells({ ctx }: { ctx: Ctx }) {
                 <div className="flex flex-col items-center gap-1">
                   <span className="flex gap-0.5">
                     {inputs.map((v, k) => (
-                      <CellCoin key={k} value={v} role="input" consumed size={26} showBadge={false} />
+                      <CellCoin key={k} value={v} owner="A" role="input" consumed size={26} showBadge={false} interactive />
                     ))}
                   </span>
                   <span className="mono text-[8px] uppercase tracking-[0.1em] text-muted">destroyed</span>
                 </div>
                 <span className="mono text-[14px]" style={{ color: 'var(--color-ember)' }}>→</span>
-                <Wallet owner="Bob" color={BOB} coins={send > 0 ? [send] : []} size={92} coinRole="output" emptyLabel="—" />
-                <Wallet owner="Alice" color={ALICE} coins={change > 0 ? [change] : []} size={92} coinRole="output" emptyLabel="—" />
+                <Wallet owner="Bob" color={BOB} coins={send > 0 ? [send] : []} size={92} coinRole="output" emptyLabel="none" />
+                <Wallet owner="Alice" color={ALICE} coins={change > 0 ? [change] : []} size={92} coinRole="output" emptyLabel="none" />
               </div>
             )}
           </div>
-          <span className="text-center text-[11px] leading-relaxed text-muted">Coins destroyed; new coins minted.</span>
+          <span className="text-center text-[11px] leading-relaxed text-muted">The old coins are destroyed and new coins are created.</span>
         </div>
       </div>
 
@@ -420,10 +424,10 @@ function AccountsVsCells({ ctx }: { ctx: Ctx }) {
 const BASE_CAPACITY = 61
 
 function dataMeaning(bytes: number): string {
-  if (bytes === 0) return 'an empty cell — just capacity, no data'
-  if (bytes <= 16) return 'a token balance (a 16-byte number, e.g. RUSD)'
+  if (bytes === 0) return 'an empty coin, with only its basic fields and no data'
+  if (bytes <= 16) return 'a token balance, which is a 16-byte number such as RUSD'
   if (bytes <= 120) return 'a name, a note, or a small record'
-  return 'an on-chain NFT, an image, or a script'
+  return 'an on-chain NFT, an image, or a program'
 }
 
 function CapacityScene() {
@@ -437,7 +441,7 @@ function CapacityScene() {
   return (
     <div className="flex w-full max-w-xl flex-col items-center gap-6">
       <div className="flex items-center gap-5">
-        <CellCoin value={total} size={coinSize} style={{ transition: 'width 200ms ease-out, height 200ms ease-out' }} />
+        <CellCoin value={total} size={coinSize} interactive style={{ transition: 'width 200ms ease-out, height 200ms ease-out' }} />
       </div>
 
       <div className="w-full">
@@ -629,15 +633,82 @@ const STATIONS = [
   { label: 'Committed', sub: 'sealed' },
 ]
 const GATE = 2
+const BLOCK_NO = '13,451,922'
+
+interface Detail {
+  title: string
+  desc: string
+  rows: [string, string][]
+  live?: 'mempool' | 'confirm'
+  tone?: 'ok' | 'alarm'
+}
+
+function stageDetail(k: number, o: { invalid: boolean; rejected: boolean; confirms: number }): Detail {
+  if (o.invalid && o.rejected && k === GATE) {
+    return {
+      title: 'Rejected at validation',
+      desc: 'A node runs the scripts. A lock or type returns false, so the node drops the transaction from its pool. Nothing is ever written on-chain.',
+      rows: [['Scripts', 'failed ✕'], ['Mempool', 'dropped'], ['On-chain', 'never recorded']],
+      tone: 'alarm',
+    }
+  }
+  switch (k) {
+    case 0:
+      return {
+        title: 'Built & signed',
+        desc: 'Alice picks her input cells, writes the output cells, and signs the transaction with her key.',
+        rows: [['Inputs', '2 cells'], ['Outputs', '2 cells'], ['Fee', '0.001 CKB'], ['Witness', 'signature ✓']],
+      }
+    case 1:
+      return {
+        title: 'Broadcast',
+        desc: 'The signed transaction is relayed to peers across the peer-to-peer network.',
+        rows: [['Sent to', 'peers'], ['State', 'in flight']],
+      }
+    case 2:
+      return {
+        title: 'In the mempool',
+        desc: 'A node re-verifies every lock and type. Valid transactions wait in the pool to be picked up by a block.',
+        rows: [['Pool', 'mempool'], ['Scripts', 'checking…'], ['Awaiting', 'a proposal']],
+        live: 'mempool',
+      }
+    case 3:
+      return {
+        title: 'Proposed',
+        desc: 'CKB confirms in two steps: a transaction is first proposed in a block, then committed a couple of blocks later. That delay defends against certain attacks.',
+        rows: [['Block', `#${BLOCK_NO}`], ['Step', '1 of 2 · propose']],
+      }
+    case 4:
+      return {
+        title: 'Committed',
+        desc: 'The transaction is sealed into a block. It is final; confirmations accrue as more blocks stack on top.',
+        rows: [['Block', `#${BLOCK_NO}`], ['Step', '2 of 2 · commit'], ['Confirmations', String(Math.max(1, o.confirms))]],
+        live: 'confirm',
+        tone: 'ok',
+      }
+    default:
+      return { title: '', desc: '', rows: [] }
+  }
+}
 
 function LifecycleScene() {
   const reduce = usePrefersReducedMotion()
   const [mode, setMode] = useState<'valid' | 'invalid'>('valid')
   const [stage, setStage] = useState(0)
   const [rejected, setRejected] = useState(false)
+  const [runId, setRunId] = useState(0)
+  const [confirms, setConfirms] = useState(0)
+  const timers = useRef<number[]>([])
   const invalid = mode === 'invalid'
+  const committed = !invalid && stage >= STATIONS.length - 1
+
+  const clearTimers = () => {
+    timers.current.forEach((t) => window.clearTimeout(t))
+    timers.current = []
+  }
 
   useEffect(() => {
+    clearTimers()
     setStage(0)
     setRejected(false)
     if (reduce) {
@@ -649,43 +720,74 @@ function LifecycleScene() {
       }
       return
     }
-    const timers: number[] = []
-    const at = (fn: () => void, ms: number) => timers.push(window.setTimeout(fn, ms))
+    const at = (fn: () => void, ms: number) => timers.current.push(window.setTimeout(fn, ms))
     if (invalid) {
-      at(() => setStage(1), 450)
-      at(() => setStage(GATE), 1150)
-      at(() => setRejected(true), 1650)
+      at(() => setStage(1), 750)
+      at(() => setStage(GATE), 1600)
+      at(() => setRejected(true), 2300)
     } else {
-      at(() => setStage(1), 450)
-      at(() => setStage(2), 1150)
-      at(() => setStage(3), 1900)
-      at(() => setStage(4), 2550)
+      at(() => setStage(1), 750)
+      at(() => setStage(2), 1600)
+      at(() => setStage(3), 2600)
+      at(() => setStage(4), 3500)
     }
-    return () => timers.forEach((t) => window.clearTimeout(t))
-  }, [mode, reduce, invalid])
+    return clearTimers
+  }, [mode, reduce, invalid, runId])
 
-  const committed = !invalid && stage >= STATIONS.length - 1
+  useEffect(() => {
+    if (!committed || reduce) {
+      setConfirms(0)
+      return
+    }
+    setConfirms(1)
+    const id = window.setInterval(() => setConfirms((c) => Math.min(c + 1, 999)), 1400)
+    return () => window.clearInterval(id)
+  }, [committed, reduce])
+
+  const goTo = (k: number) => {
+    clearTimers()
+    if (invalid && k > GATE) return
+    setStage(k)
+    setRejected(invalid && k === GATE)
+  }
+  const replay = () => {
+    clearTimers()
+    setRunId((r) => r + 1)
+  }
+
   const packetStage = invalid ? Math.min(stage, GATE) : stage
-  const fillPct = invalid ? Math.min(stage, GATE) * 25 : stage * 25
+  const fillPct = (invalid ? Math.min(stage, GATE) : stage) * 25
+  const detail = stageDetail(stage, { invalid, rejected, confirms })
+  const total = invalid ? 3 : STATIONS.length
+  const stageNo = Math.min(stage, invalid ? GATE : STATIONS.length - 1) + 1
 
   return (
-    <div className="flex w-full flex-col items-center gap-8">
-      <div className="inline-flex border border-border">
-        {(['valid', 'invalid'] as const).map((m) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => setMode(m)}
-            className="mono px-4 py-1.5 text-[10px] uppercase tracking-[0.12em] transition-colors"
-            style={
-              mode === m
-                ? { background: m === 'invalid' ? 'color-mix(in oklab, var(--color-alarm) 18%, transparent)' : 'color-mix(in oklab, var(--color-ember) 18%, transparent)', color: m === 'invalid' ? 'var(--color-alarm)' : 'var(--color-ember)' }
-                : { color: 'var(--color-muted)' }
-            }
-          >
-            {m === 'valid' ? 'Valid tx' : 'Invalid tx'}
-          </button>
-        ))}
+    <div className="flex w-full flex-col items-center gap-6">
+      <div className="flex items-center gap-3">
+        <div className="inline-flex border border-border">
+          {(['valid', 'invalid'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className="mono px-4 py-1.5 text-[10px] uppercase tracking-[0.12em] transition-colors"
+              style={
+                mode === m
+                  ? { background: m === 'invalid' ? 'color-mix(in oklab, var(--color-alarm) 18%, transparent)' : 'color-mix(in oklab, var(--color-ember) 18%, transparent)', color: m === 'invalid' ? 'var(--color-alarm)' : 'var(--color-ember)' }
+                  : { color: 'var(--color-muted)' }
+              }
+            >
+              {m === 'valid' ? 'Valid tx' : 'Invalid tx'}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={replay}
+          className="mono border border-border px-3 py-1.5 text-[10px] uppercase tracking-[0.12em] text-bone-dim transition-colors hover:border-ember hover:text-ember"
+        >
+          ↻ Replay
+        </button>
       </div>
 
       <div className="relative w-full px-1 pt-8">
@@ -702,7 +804,13 @@ function LifecycleScene() {
             left: `${packetStage * 25}%`,
             marginLeft: -20,
             transition: 'left 560ms cubic-bezier(.5,0,.2,1)',
-            animation: rejected ? 'packet-reject 900ms cubic-bezier(.5,.05,.9,.5) both' : committed ? 'commit-seal 520ms cubic-bezier(.3,1.4,.5,1) both' : undefined,
+            animation: rejected
+              ? 'packet-reject 900ms cubic-bezier(.5,.05,.9,.5) both'
+              : committed
+                ? 'commit-seal 520ms cubic-bezier(.3,1.4,.5,1) both'
+                : reduce
+                  ? undefined
+                  : 'lc-bob 2.6s ease-in-out infinite',
           }}
         >
           <TxPacket size={40} validated={!invalid && stage >= GATE} rejected={rejected} />
@@ -711,37 +819,82 @@ function LifecycleScene() {
         <div className="relative flex justify-between">
           {STATIONS.map((s, k) => {
             const on = invalid ? k <= GATE : stage >= k
+            const isCurrent = k === packetStage && !rejected
             const isCommitted = k === STATIONS.length - 1 && committed
             const isGate = k === GATE && rejected
             const tint = isCommitted ? 'var(--color-flow-out)' : isGate ? 'var(--color-alarm)' : on ? 'var(--color-ember)' : 'var(--color-muted)'
+            const disabled = invalid && k > GATE
             return (
-              <div key={s.label} className="flex flex-col items-center gap-2" style={{ maxWidth: 88 }}>
-                <span className="inline-flex h-4 w-4 items-center justify-center border" style={{ borderColor: on ? tint : 'var(--color-border)', background: 'var(--color-panel)' }}>
+              <button
+                key={s.label}
+                type="button"
+                onClick={() => goTo(k)}
+                disabled={disabled}
+                className="group flex flex-col items-center gap-2 disabled:cursor-default"
+                style={{ maxWidth: 88 }}
+              >
+                <span className="relative inline-flex h-4 w-4 items-center justify-center border transition-colors group-hover:enabled:border-ember" style={{ borderColor: on ? tint : 'var(--color-border)', background: 'var(--color-panel)' }}>
+                  {isCurrent && !reduce && <span style={{ position: 'absolute', inset: -3, border: `1px solid ${tint}`, animation: 'lc-pulse 1.6s ease-out infinite' }} />}
                   <span style={{ position: 'absolute', width: 8, height: 8, background: on ? tint : 'transparent', transition: 'background 220ms ease' }} />
                 </span>
                 <span className="mono text-[9px] uppercase tracking-[0.1em]" style={{ color: on ? (isCommitted ? 'var(--color-flow-out)' : isGate ? 'var(--color-alarm)' : 'var(--color-bone-dim)') : 'var(--color-muted)' }}>
                   {s.label}
                 </span>
                 <span className="mono text-center text-[8px] uppercase tracking-[0.08em] text-muted">{isGate ? 'rejected ✕' : s.sub}</span>
-              </div>
+              </button>
             )
           })}
         </div>
       </div>
 
-      <span className="mono max-w-md text-center text-[11px] leading-relaxed text-muted">
-        {invalid ? (
-          <>
-            A node runs the scripts. A guard says no, so the transaction is{' '}
-            <span style={{ color: 'var(--color-alarm)' }}>dropped from the pool</span> — it never reaches a block. No failed transaction is ever recorded.
-          </>
-        ) : (
-          <>
-            Every lock and type passes, and the transaction is{' '}
-            <span style={{ color: 'var(--color-flow-out)' }}>committed into a block</span> for good.
-          </>
-        )}
-      </span>
+      <div className="w-full max-w-lg border border-hairline bg-inset px-4 py-3" style={{ minHeight: 128 }}>
+        <div className="flex items-center gap-2">
+          <span style={{ width: 7, height: 7, background: detail.tone === 'alarm' ? 'var(--color-alarm)' : detail.tone === 'ok' ? 'var(--color-flow-out)' : 'var(--color-ember)' }} />
+          <span className="mono text-[12px] font-medium uppercase tracking-[0.1em] text-bone">{detail.title}</span>
+          <span className="mono ml-auto text-[10px] text-muted">
+            stage {stageNo}/{total}
+          </span>
+        </div>
+        <p className="mt-2 text-[12px] leading-relaxed text-bone-dim">{detail.desc}</p>
+        <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1.5">
+          {detail.rows.map(([k, v]) => (
+            <span key={k} className="mono text-[11px]">
+              <span className="text-[9px] uppercase tracking-[0.08em] text-muted">{k} </span>
+              <span className="text-bone">{v}</span>
+            </span>
+          ))}
+        </div>
+        {detail.live === 'mempool' && <MempoolStrip reduce={reduce} />}
+      </div>
+
+      <span className="mono text-[10px] text-muted">click a stage to inspect it · ↻ replay to watch again</span>
+    </div>
+  )
+}
+
+function MempoolStrip({ reduce }: { reduce: boolean }) {
+  const blips = [0, 1, 2, 3, 4, 5, 6]
+  return (
+    <div className="mt-3 flex items-center gap-2 border-t border-hairline pt-2.5">
+      <span className="mono text-[9px] uppercase tracking-[0.1em] text-muted">other pending tx</span>
+      <div className="flex gap-1">
+        {blips.map((i) => {
+          const ours = i === 3
+          return (
+            <span
+              key={i}
+              title={ours ? "Alice's tx" : undefined}
+              style={{
+                width: 13,
+                height: 10,
+                border: `1px solid ${ours ? 'var(--color-ember)' : 'var(--color-hairline)'}`,
+                background: ours ? 'color-mix(in oklab, var(--color-ember) 30%, transparent)' : 'transparent',
+                animation: reduce || ours ? undefined : `lc-twinkle 2s ease-in-out ${i * 0.25}s infinite`,
+              }}
+            />
+          )
+        })}
+      </div>
     </div>
   )
 }

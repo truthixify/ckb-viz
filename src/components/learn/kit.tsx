@@ -2,10 +2,10 @@
  * The illustrated vocabulary for the /learn walkthrough.
  *
  * The metaphor, stated once so every scene obeys it:
- *   - A PIGGY BANK (Wallet) is a person's wallet — one per person, it holds
+ *   - A PIGGY BANK (Wallet) is a person's wallet - one per person, it holds
  *     everything they own and persists across a payment. It is never destroyed
  *     to spend money; it is the stage, not the token.
- *   - A COIN (CellCoin) is one cell — one UTXO. It carries a value (its
+ *   - A COIN (CellCoin) is one cell - one UTXO. It carries a value (its
  *     capacity), a lock (who can spend it) and optionally a type (a token).
  *     Spending consumes coins and mints new ones; a new UTXO is a new COIN
  *     dropped into a wallet, never a new piggy bank.
@@ -17,7 +17,7 @@ const fmtCoin = (n: number) => n.toLocaleString(undefined, { maximumFractionDigi
 
 const ownerColor = (o?: 'A' | 'B') => (o === 'B' ? 'var(--color-bone-dim)' : 'var(--color-ember)')
 
-/** A friendly person avatar — Alice, Bob — for the transaction walkthrough. */
+/** A friendly person avatar - Alice, Bob - for the transaction walkthrough. */
 export function Avatar({
   name,
   color,
@@ -46,7 +46,7 @@ export function Avatar({
 }
 
 /**
- * A coin — one cell, one UTXO. `value` is its capacity; `owner` drives a small
+ * A coin - one cell, one UTXO. `value` is its capacity; `owner` drives a small
  * padlock badge (whose key spends it); `type` stamps a token on its face;
  * `role` tints the rim as a marker (input = blue, output = green); `consumed`
  * shows it destroyed at a transaction (struck through, desaturated).
@@ -60,6 +60,7 @@ export function CellCoin({
   size = 44,
   showValue = true,
   showBadge = true,
+  interactive = false,
   className,
   style,
 }: {
@@ -71,6 +72,7 @@ export function CellCoin({
   size?: number
   showValue?: boolean
   showBadge?: boolean
+  interactive?: boolean
   className?: string
   style?: React.CSSProperties
 }) {
@@ -83,11 +85,17 @@ export function CellCoin({
         : 'color-mix(in oklab, var(--color-ember) 45%, var(--color-bone))'
   const body = consumed ? 'color-mix(in oklab, var(--color-muted) 22%, var(--color-panel))' : 'var(--color-ember)'
   const oc = ownerColor(owner)
+  const ownerName = owner === 'B' ? 'Bob' : owner === 'A' ? 'Alice' : undefined
+  const roleText = consumed ? 'consumed · destroyed here' : role === 'input' ? 'input · being spent' : role === 'output' ? 'output · newly minted' : undefined
+  const ariaLabel = interactive
+    ? `Cell (UTXO)${value !== undefined ? `, ${fmtCoin(value)} CKB` : ''}${ownerName ? `, ${ownerName}'s lock` : ''}${type ? `, ${type} token` : ''}`
+    : undefined
 
   return (
     <span
-      className={className}
-      aria-hidden
+      className={interactive ? `learn-cell ${className ?? ''}` : className}
+      aria-hidden={interactive ? undefined : true}
+      {...(interactive ? { role: 'img', 'aria-label': ariaLabel, tabIndex: 0 } : {})}
       style={{ position: 'relative', display: 'inline-block', width: size, height: size, opacity: consumed ? 0.55 : 1, ...style }}
     >
       <svg width={size} height={size} viewBox="0 0 44 44">
@@ -138,12 +146,30 @@ export function CellCoin({
           {owner}
         </span>
       )}
+      {interactive && (
+        <span className="learn-tip" role="tooltip">
+          <span className="learn-tip-head">Cell · one UTXO</span>
+          {value !== undefined && <TipRow k="Capacity" v={`${fmtCoin(value)} CKB`} />}
+          <TipRow k="Lock" v={ownerName ? `${ownerName}'s key` : 'a lock script'} />
+          <TipRow k="Type" v={type ?? 'none · plain CKB'} />
+          {roleText && <TipRow k="Role" v={roleText} />}
+        </span>
+      )}
+    </span>
+  )
+}
+
+function TipRow({ k, v }: { k: string; v: string }) {
+  return (
+    <span className="learn-tip-row">
+      <span className="learn-tip-k">{k}</span>
+      <span className="learn-tip-v">{v}</span>
     </span>
   )
 }
 
 /**
- * A wallet — a piggy bank holding a person's coins. One per person; it persists.
+ * A wallet - a piggy bank holding a person's coins. One per person; it persists.
  * `coins` are the values of the cells inside; the total is their live sum.
  */
 export function Wallet({
@@ -207,6 +233,7 @@ export function Wallet({
                 showBadge={showValues}
                 {...(coinRole ? { role: coinRole } : {})}
                 size={coinSize}
+                interactive
               />
             ))
           )}
@@ -221,7 +248,7 @@ export function Wallet({
 }
 
 /**
- * A piggy bank — a person's wallet. It holds coins; it is never smashed to pay.
+ * A piggy bank - a person's wallet. It holds coins; it is never smashed to pay.
  * (Its cut-away belly is where the Wallet component overlays the coins.)
  */
 export function PiggyBank({
@@ -252,7 +279,38 @@ export function PiggyBank({
   )
 }
 
-/** A padlock — the lock script. `open` swings the shackle up. */
+/**
+ * A bank building - the "account model" counterpart to the piggy bank. Drawn in
+ * neutral bone (not ember) because it stands for the old way, not for CKB.
+ */
+export function BankBuilding({
+  size = 116,
+  color = 'var(--color-bone-dim)',
+  className,
+  style,
+}: {
+  size?: number
+  color?: string
+  className?: string
+  style?: React.CSSProperties
+}) {
+  const fill = 'color-mix(in oklab, var(--color-bone-dim) 8%, var(--color-panel))'
+  return (
+    <svg width={size} height={(size * 56) / 72} viewBox="0 0 72 56" fill="none" aria-hidden className={className} style={style}>
+      <path d="M5 23 L36 6 L67 23 Z" fill={fill} stroke={color} strokeWidth="2" strokeLinejoin="round" />
+      <circle cx="36" cy="16" r="2.4" fill={color} />
+      <rect x="9" y="23" width="54" height="4" fill={fill} stroke={color} strokeWidth="2" />
+      <rect x="15" y="28" width="6" height="16" fill={fill} stroke={color} strokeWidth="2" />
+      <rect x="27" y="28" width="6" height="16" fill={fill} stroke={color} strokeWidth="2" />
+      <rect x="39" y="28" width="6" height="16" fill={fill} stroke={color} strokeWidth="2" />
+      <rect x="51" y="28" width="6" height="16" fill={fill} stroke={color} strokeWidth="2" />
+      <rect x="9" y="44" width="54" height="4" fill={fill} stroke={color} strokeWidth="2" />
+      <rect x="5" y="48" width="62" height="4" fill={fill} stroke={color} strokeWidth="2" />
+    </svg>
+  )
+}
+
+/** A padlock - the lock script. `open` swings the shackle up. */
 export function Padlock({
   size = 20,
   open = false,
@@ -280,7 +338,7 @@ export function Padlock({
   )
 }
 
-/** A type stamp — the type script (e.g. a token). */
+/** A type stamp - the type script (e.g. a token). */
 export function Stamp({ label, color = 'var(--color-ember)' }: { label: string; color?: string }) {
   return (
     <span
@@ -298,7 +356,7 @@ export function Stamp({ label, color = 'var(--color-ember)' }: { label: string; 
 }
 
 /**
- * The lifecycle traveller — a sealed transaction packet (not a loose coin).
+ * The lifecycle traveller - a sealed transaction packet (not a loose coin).
  * A squared card bearing a seal; `validated` shows a green check, `rejected` a
  * red cross.
  */
