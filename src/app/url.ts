@@ -51,8 +51,11 @@ export function buildUrl(
   simulate?: boolean,
   learn?: boolean,
 ): string {
+  // The learn page is a static primer that never touches the chain, so it does
+  // not carry a network in its URL. The selection still rides in the history
+  // state (see App), so leaving the lesson returns you to your chosen network.
+  if (learn) return '/learn'
   const query = `?network=${network}`
-  if (learn) return `/learn${query}`
   if (simulate) return `/simulate${query}`
   if (address) return `/address/${address}${query}`
   return hash ? `/tx/${hash}${query}` : `/${query}`
