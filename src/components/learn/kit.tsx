@@ -1,37 +1,101 @@
-import { clsx } from '@/app/clsx'
-
 /**
- * The illustrated vocabulary for the /learn primer: a Coin (a unit of value), a
- * Cell (the box that holds it), a Padlock (the lock script), and a type Stamp.
- * Deliberately on-brand — squared, ember, the flow tints — so the primer and the
- * real visualizer read as one language.
+ * The illustrated vocabulary for the /learn walkthrough: people (Avatar), a
+ * round CkbCoin, the PiggyBank that stands in for a cell, a Padlock (the lock
+ * script), and a type Stamp. Deliberately on-brand — squared, ember, the flow
+ * tints — so the walkthrough and the real visualizer read as one language.
  */
 
-type Tone = 'input' | 'output' | 'neutral' | 'ember'
-
-const toneColor: Record<Tone, string> = {
-  input: 'var(--color-flow-in)',
-  output: 'var(--color-flow-out)',
-  neutral: 'var(--color-border)',
-  ember: 'var(--color-ember)',
+/** A friendly person avatar — Alice, Bob — for the transaction walkthrough. */
+export function Avatar({
+  name,
+  color,
+  size = 64,
+  className,
+  style,
+}: {
+  name: string
+  color: string
+  size?: number
+  className?: string
+  style?: React.CSSProperties
+}) {
+  const initial = name.slice(0, 1).toUpperCase()
+  return (
+    <div className={className} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, ...style }}>
+      <svg width={size} height={size} viewBox="0 0 48 48" fill="none" aria-hidden>
+        <circle cx="24" cy="24" r="22" fill="color-mix(in oklab, var(--color-panel) 88%, transparent)" stroke={color} strokeWidth="2" />
+        <circle cx="24" cy="19" r="7.5" fill="none" stroke={color} strokeWidth="2" />
+        <path d="M12 39 a12 10 0 0 1 24 0" fill="none" stroke={color} strokeWidth="2" />
+        <text x="24" y="27.5" textAnchor="middle" fontSize="9" fontFamily="var(--font-mono)" fill={color} opacity="0">
+          {initial}
+        </text>
+      </svg>
+      <span className="mono text-[11px] font-medium" style={{ color }}>
+        {name}
+      </span>
+    </div>
+  )
 }
 
-/** A unit of value — a small squared "coin" (a tilted square) in ember. */
-export function Coin({ size = 16, className, style }: { size?: number; className?: string; style?: React.CSSProperties }) {
+/** A round CKB coin, for the piggy-bank scenes. */
+export function CkbCoin({ size = 22, className, style }: { size?: number; className?: string; style?: React.CSSProperties }) {
   return (
-    <span
-      aria-hidden
-      className={className}
-      style={{
-        display: 'inline-block',
-        width: size,
-        height: size,
-        transform: 'rotate(45deg)',
-        background: 'var(--color-ember)',
-        border: '1.5px solid color-mix(in oklab, var(--color-ember) 40%, var(--color-bone))',
-        ...style,
-      }}
-    />
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden className={className} style={style}>
+      <circle cx="12" cy="12" r="10.5" fill="var(--color-ember)" stroke="color-mix(in oklab, var(--color-ember) 45%, var(--color-bone))" strokeWidth="1.5" />
+      <circle cx="12" cy="12" r="7" fill="none" stroke="color-mix(in oklab, var(--color-ember) 30%, var(--color-base))" strokeWidth="1" />
+      <rect x="10.6" y="6.5" width="2.8" height="11" transform="rotate(45 12 12)" fill="var(--color-base)" opacity="0.85" />
+    </svg>
+  )
+}
+
+/**
+ * A piggy bank — the friendly stand-in for a cell. It holds coins, has a slot to
+ * drop them in, and a lock; to spend, you break it open. `broken` cracks it.
+ */
+export function PiggyBank({
+  size = 96,
+  color = 'var(--color-ember)',
+  broken = false,
+  className,
+  style,
+}: {
+  size?: number
+  color?: string
+  broken?: boolean
+  className?: string
+  style?: React.CSSProperties
+}) {
+  const fill = 'color-mix(in oklab, var(--color-ember) 10%, var(--color-panel))'
+  return (
+    <svg width={size} height={(size * 56) / 72} viewBox="0 0 72 56" fill="none" aria-hidden className={className} style={style}>
+      {/* legs */}
+      <rect x="20" y="42" width="5" height="9" fill={fill} stroke={color} strokeWidth="2" />
+      <rect x="45" y="42" width="5" height="9" fill={fill} stroke={color} strokeWidth="2" />
+      {/* body */}
+      <ellipse cx="37" cy="28" rx="26" ry="17" fill={fill} stroke={color} strokeWidth="2" />
+      {/* ear */}
+      <path d="M40 12 l7 -7 l2 10 z" fill={fill} stroke={color} strokeWidth="2" strokeLinejoin="round" />
+      {/* snout */}
+      <ellipse cx="12" cy="30" rx="8" ry="9" fill={fill} stroke={color} strokeWidth="2" />
+      <circle cx="10" cy="28" r="1.1" fill={color} />
+      <circle cx="10" cy="33" r="1.1" fill={color} />
+      {/* eye */}
+      <circle cx="24" cy="23" r="1.6" fill={color} />
+      {/* coin slot */}
+      <rect x="34" y="14" width="16" height="3" rx="1" fill="var(--color-base)" stroke={color} strokeWidth="1.4" />
+      {/* tail */}
+      <path d="M62 25 q6 -1 4 5 q-2 4 -6 1" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      {/* crack when broken */}
+      {broken && (
+        <path
+          d="M30 12 l4 8 l-5 5 l6 6 l-4 8"
+          fill="none"
+          stroke="var(--color-alarm)"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+      )}
+    </svg>
   )
 }
 
@@ -88,55 +152,3 @@ export function Stamp({ label, color = 'var(--color-ember)' }: { label: string; 
   )
 }
 
-export interface CellProps {
-  /** Capacity label, e.g. "100". */
-  capacity?: string | number
-  /** Owner / name shown small at the top, e.g. "Alice". */
-  owner?: string
-  locked?: boolean
-  lockOpen?: boolean
-  type?: string
-  tone?: Tone
-  /** Coins to render inside as a value indicator. */
-  coins?: number
-  className?: string
-  style?: React.CSSProperties
-  children?: React.ReactNode
-}
-
-/** A cell — the box that holds capacity, a lock, and optionally a type + data. */
-export function Cell({
-  capacity,
-  owner,
-  locked = false,
-  lockOpen = false,
-  type,
-  tone = 'neutral',
-  className,
-  style,
-  children,
-}: CellProps) {
-  return (
-    <div
-      className={clsx('relative flex min-w-[150px] flex-col gap-2 bg-panel px-4 py-3', className)}
-      style={{ border: '1px solid var(--color-hairline)', borderLeft: `3px solid ${toneColor[tone]}`, ...style }}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <span className="meta-label-sm">{owner ?? 'Cell'}</span>
-        {locked && <Padlock size={18} open={lockOpen} color={toneColor[tone === 'neutral' ? 'ember' : tone]} />}
-      </div>
-      {capacity !== undefined && (
-        <span className="flex items-baseline gap-1.5">
-          <span className="mono text-[24px] font-medium leading-none tracking-tight text-bone">{capacity}</span>
-          <span className="mono text-[10px] uppercase tracking-[0.1em] text-muted">CKB</span>
-        </span>
-      )}
-      {type && (
-        <span>
-          <Stamp label={type} color={toneColor[tone === 'input' ? 'input' : 'output']} />
-        </span>
-      )}
-      {children}
-    </div>
-  )
-}

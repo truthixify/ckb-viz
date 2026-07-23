@@ -22,6 +22,44 @@
   }
 }
 
+/* A coin dropping from above into a piggy bank's slot, then vanishing inside. */
+@keyframes learn-coin-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-52px) scale(1) rotate(0deg);
+  }
+  18% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(180deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.35) rotate(220deg);
+  }
+}
+
+/* Coins pouring out of a broken piggy bank and drifting toward the transaction. */
+@keyframes learn-coin-out {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.6);
+  }
+  25% {
+    opacity: 1;
+    transform: translate(var(--dx, 30px), var(--dy, 6px)) scale(1);
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(var(--dx, 30px) * 3), var(--dy, 6px)) scale(0.7);
+  }
+}
+
 /* A box / element popping into place. */
 @keyframes learn-pop {
   from {
@@ -97,6 +135,24 @@
   }
 }
 
+/* A coin travelling a horizontal lane (input → transaction → output), looping. */
+@keyframes learn-coin-lane {
+  0% {
+    opacity: 0;
+    left: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    left: calc(100% - 12px);
+  }
+}
+
 /* A short fade-slide-up for captions / labels. */
 @keyframes learn-rise {
   from {
@@ -116,6 +172,69 @@
   }
   to {
     left: 100%;
+  }
+}
+
+/* A packet hopping station-to-station along the lifecycle track, pausing at
+   each — Built → Sent → Pending → Proposed → Committed — then looping. */
+@keyframes learn-hop {
+  0%,
+  6% {
+    left: 0;
+  }
+  19%,
+  31% {
+    left: calc(25% - 6px);
+  }
+  44%,
+  56% {
+    left: calc(50% - 6px);
+  }
+  69%,
+  81% {
+    left: calc(75% - 6px);
+  }
+  94%,
+  100% {
+    left: calc(100% - 12px);
+  }
+}
+
+/* The same packet, but rejected: it reaches the validation gate (Pending) and
+   is dropped — it never proceeds to a block. */
+@keyframes learn-hop-reject {
+  0%,
+  8% {
+    left: 0;
+    opacity: 1;
+  }
+  25%,
+  37% {
+    left: calc(25% - 6px);
+    opacity: 1;
+  }
+  55%,
+  70% {
+    left: calc(50% - 6px);
+    opacity: 1;
+  }
+  86% {
+    left: calc(50% - 6px);
+    opacity: 0.15;
+  }
+  100% {
+    left: calc(50% - 6px);
+    opacity: 0;
+  }
+}
+
+/* The progress fill growing left→right (scaleX so one keyframe serves any width). */
+@keyframes learn-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
   }
 }
 
@@ -165,4 +284,40 @@
     animation-timing-function: var(--ease-instrument);
     animation-fill-mode: both;
   }
+}
+
+/* The "amount to send" slider — squared, ember, on-brand (no rounded native UI). */
+.learn-range {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+.learn-range::-webkit-slider-runnable-track {
+  height: 2px;
+  background: var(--color-hairline);
+}
+.learn-range::-moz-range-track {
+  height: 2px;
+  background: var(--color-hairline);
+}
+.learn-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 16px;
+  margin-top: -7px;
+  background: var(--color-ember);
+  border: 1px solid color-mix(in oklab, var(--color-ember) 45%, var(--color-bone));
+}
+.learn-range::-moz-range-thumb {
+  width: 12px;
+  height: 16px;
+  border: 1px solid color-mix(in oklab, var(--color-ember) 45%, var(--color-bone));
+  background: var(--color-ember);
+  border-radius: 0;
+}
+.learn-range:focus-visible {
+  outline: 2px solid var(--color-ember);
+  outline-offset: 4px;
 }
