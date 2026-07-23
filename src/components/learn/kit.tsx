@@ -196,7 +196,12 @@ export function Wallet({
   className?: string
 }) {
   const total = coins.reduce((a, b) => a + b, 0)
-  const coinSize = showValues ? Math.max(32, Math.round(size * 0.3)) : Math.round(size * 0.22)
+  const count = coins.length
+  // Coins stay full size up to three; past that they shrink (keeping their total
+  // area roughly constant) so the wallet fills up instead of overflowing.
+  const baseCoin = showValues ? Math.max(32, Math.round(size * 0.3)) : Math.round(size * 0.22)
+  const coinSize = count <= 3 ? baseCoin : Math.max(10, Math.round(baseCoin * Math.sqrt(3 / count)))
+  const gap = count > 6 ? 1 : showValues ? 4 : 2
   const bodyH = (size * 56) / 72
 
   return (
@@ -215,7 +220,7 @@ export function Wallet({
             flexWrap: 'wrap',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: showValues ? 4 : 2,
+            gap,
             animationName: receiveKey ? 'piggy-receive' : undefined,
             animationDuration: '260ms',
             animationTimingFunction: 'cubic-bezier(.2,.6,.3,1)',
