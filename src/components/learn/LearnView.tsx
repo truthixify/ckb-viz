@@ -478,7 +478,7 @@ function CapacityScene() {
   const coinSize = Math.round(58 + Math.min(1, (total - CAP_BASE) / 240) * 82)
 
   return (
-    <div className="flex w-full max-w-xl flex-col items-center gap-5">
+    <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-5">
       <div className="inline-flex border border-border">
         {([['plain', 'Plain coin'], ['token', 'Token coin']] as const).map(([k, labelText]) => {
           const on = (k === 'token') === token
@@ -496,7 +496,9 @@ function CapacityScene() {
         })}
       </div>
 
-      <CellCoin value={total} owner="A" {...(token ? { type: 'RUSD' } : {})} size={coinSize} interactive style={{ transition: 'width 200ms ease-out, height 200ms ease-out' }} />
+      <div className="flex items-center justify-center pt-4">
+        <CellCoin value={total} owner="A" {...(token ? { type: 'RUSD' } : {})} size={coinSize} interactive style={{ transition: 'width 200ms ease-out, height 200ms ease-out' }} />
+      </div>
 
       <div className="w-full">
         <div className="flex h-6 w-full overflow-hidden border border-hairline bg-inset">
