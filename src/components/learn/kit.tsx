@@ -202,6 +202,9 @@ export function Wallet({
   const baseCoin = showValues ? Math.max(32, Math.round(size * 0.3)) : Math.round(size * 0.16)
   const coinSize = count <= 3 ? baseCoin : Math.max(10, Math.round(baseCoin * Math.sqrt(3 / count)))
   const gap = count > 6 ? 1 : showValues ? 4 : 2
+  // Cluster the coins across the belly (a roughly square grid) rather than a
+  // single straight row, so they occupy the space available.
+  const cols = Math.max(1, Math.ceil(Math.sqrt(count)))
   const bodyH = (size * 56) / 72
 
   return (
@@ -212,13 +215,15 @@ export function Wallet({
           key={receiveKey}
           style={{
             position: 'absolute',
-            left: '22%',
-            top: '22%',
-            width: '56%',
-            height: '54%',
-            display: 'flex',
-            flexWrap: 'wrap',
+            left: '20%',
+            top: '20%',
+            width: '60%',
+            height: '58%',
+            display: count === 0 ? 'flex' : 'grid',
+            ...(count > 0 ? { gridTemplateColumns: `repeat(${cols}, auto)` } : {}),
             alignItems: 'center',
+            alignContent: 'center',
+            justifyItems: 'center',
             justifyContent: 'center',
             gap,
             animationName: receiveKey ? 'piggy-receive' : undefined,

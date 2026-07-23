@@ -729,6 +729,66 @@ function SendScene({ ctx }: { ctx: Ctx }) {
 
 const COMPOSER_COINS = [63, 80, 142, 200]
 const CELL_FLOOR = 61
+const COMPOSER_PIGGY = 118
+
+/** Alice's wallet in the composer: the coins she has chosen to spend sit inside
+ *  it and drop in as they are added; tapping one takes it back out. While the
+ *  transaction plays the coins are in flight, and afterwards it holds her change. */
+function AliceInputWallet({
+  selected,
+  playing,
+  result,
+  onRemove,
+}: {
+  selected: number[]
+  playing: boolean
+  result: { change: number } | null
+  onRemove: (i: number) => void
+}) {
+  const bodyH = (COMPOSER_PIGGY * 56) / 72
+  const showChange = !!result && result.change > 0
+  const n = playing ? 0 : result ? (showChange ? 1 : 0) : selected.length
+  const cols = Math.max(1, Math.ceil(Math.sqrt(Math.max(1, n))))
+  const pieceSize = n <= 3 ? 24 : Math.max(14, Math.round(24 * Math.sqrt(3 / n)))
+
+  return (
+    <div className="relative" style={{ width: COMPOSER_PIGGY, height: bodyH }}>
+      <PiggyBank size={COMPOSER_PIGGY} color={ALICE} />
+      <div
+        className="absolute"
+        style={{
+          left: '20%',
+          top: '20%',
+          width: '60%',
+          height: '58%',
+          display: n === 0 ? 'flex' : 'grid',
+          ...(n > 0 ? { gridTemplateColumns: `repeat(${cols}, auto)` } : {}),
+          placeContent: 'center',
+          justifyItems: 'center',
+          alignItems: 'center',
+          gap: 3,
+        }}
+      >
+        {n === 0 && !playing && <span className="mono text-[9px] uppercase tracking-[0.1em] text-muted">{result ? 'no change' : 'pick coins'}</span>}
+        {!playing && result && showChange && <CellCoin value={result.change} role="output" size={pieceSize} showBadge={false} />}
+        {!playing &&
+          !result &&
+          selected.map((i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => onRemove(i)}
+              title="Tap to take this coin back out"
+              className="block transition-transform hover:-translate-y-0.5"
+              style={{ animation: 'coin-in-slot 320ms cubic-bezier(.2,.6,.3,1) both' }}
+            >
+              <CellCoin value={COMPOSER_COINS[i] ?? 0} role="input" size={pieceSize} showBadge={false} />
+            </button>
+          ))}
+      </div>
+    </div>
+  )
+}
 
 function ComposerScene() {
   const reduce = usePrefersReducedMotion()
@@ -744,10 +804,14 @@ function ComposerScene() {
   const clearResult = () => {
     if (result) setResult(null)
   }
-  const toggle = (i: number) => {
+  const add = (i: number) => {
+    if (playing || result) return
+    setSelected((prev) => (prev.includes(i) ? prev : [...prev, i]))
+  }
+  const remove = (i: number) => {
     if (playing) return
     clearResult()
-    setSelected((prev) => (prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]))
+    setSelected((prev) => prev.filter((x) => x !== i))
   }
 
   const selectedVals = selected.map((i) => COMPOSER_COINS[i]).filter((v): v is number => v !== undefined)
@@ -785,16 +849,15 @@ function ComposerScene() {
     setResult(null)
   }
 
-  const aliceCoins = result && !playing && result.change > 0 ? [result.change] : []
   const bobCoins = result && !playing && result.bob > 0 ? [result.bob] : []
 
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-4">
-      <div className="relative w-full" style={{ minHeight: 150 }}>
+      <div className="relative w-full" style={{ minHeight: 164 }}>
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           <div className="flex flex-col items-center gap-1.5">
             <Avatar name="Alice" color={ALICE} size={40} />
-            <Wallet owner="" ownerLetter="A" color={ALICE} coins={aliceCoins} size={92} emptyLabel={result ? 'no change' : ''} receiveKey={playing ? 0 : flight} />
+            <AliceInputWallet selected={selected} playing={playing} result={result} onRemove={remove} />
           </div>
           <div className="flex flex-col items-center gap-2 px-2">
             <span className="mono grid place-items-center border px-3 py-2 text-[9px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-ember)', borderColor: 'var(--color-ember)', minWidth: 88 }}>
@@ -854,34 +917,29 @@ function ComposerScene() {
         )}
       </div>
 
-      {!result && (
+      {!result && !playing && (
         <div className="flex flex-col items-center gap-2">
-          <span className="meta-label-sm">Alice’s coins · tap to spend</span>
-          <div className="flex flex-wrap items-start justify-center gap-3">
-            {COMPOSER_COINS.map((v, i) => {
-              const sel = selected.includes(i)
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => toggle(i)}
-                  aria-pressed={sel}
-                  disabled={playing}
-                  className="flex flex-col items-center gap-1 border p-2 transition-all disabled:opacity-40"
-                  style={{
-                    borderColor: sel ? 'var(--color-flow-in)' : 'var(--color-hairline)',
-                    transform: sel ? 'translateY(-3px)' : 'none',
-                    background: sel ? 'color-mix(in oklab, var(--color-flow-in) 8%, transparent)' : 'transparent',
-                    visibility: playing && sel ? 'hidden' : 'visible',
-                  }}
-                >
-                  <CellCoin value={v} owner="A" {...(sel ? { role: 'input' as const } : {})} size={44} />
-                  <span className="mono text-[8px] uppercase tracking-[0.1em]" style={{ color: sel ? 'var(--color-flow-in)' : 'var(--color-muted)' }}>
-                    {sel ? 'spending' : 'spend'}
-                  </span>
-                </button>
+          <span className="meta-label-sm">Alice’s coins · tap to drop into her wallet</span>
+          <div className="flex min-h-[68px] flex-wrap items-center justify-center gap-3">
+            {COMPOSER_COINS.every((_, i) => selected.includes(i)) ? (
+              <span className="mono text-[10px] uppercase tracking-[0.1em] text-muted">all of Alice’s coins are in her wallet</span>
+            ) : (
+              COMPOSER_COINS.map((v, i) =>
+                selected.includes(i) ? null : (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => add(i)}
+                    className="flex flex-col items-center gap-1 border border-hairline p-2 transition-colors hover:border-flow-in"
+                  >
+                    <CellCoin value={v} owner="A" size={44} />
+                    <span className="mono text-[8px] uppercase tracking-[0.1em]" style={{ color: 'var(--color-flow-in)' }}>
+                      add →
+                    </span>
+                  </button>
+                ),
               )
-            })}
+            )}
           </div>
         </div>
       )}
@@ -918,7 +976,7 @@ function ComposerScene() {
             ↺ Build another
           </button>
         ) : !covers ? (
-          <span className="mono text-[11px] text-muted">Select coins worth at least {fmt(round3(amount + FEE))} CKB to cover the payment and its fee.</span>
+          <span className="mono text-[11px] text-muted">Add coins worth at least {fmt(round3(amount + FEE))} CKB to cover the payment and its fee.</span>
         ) : changeTooSmall ? (
           <span className="mono max-w-sm text-[11px]" style={{ color: 'var(--color-alarm)' }}>
             The change would be {fmt(change)} CKB, below the 61 minimum. A coin cannot be that small. Add another coin, or change the amount.
