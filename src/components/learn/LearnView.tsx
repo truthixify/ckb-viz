@@ -330,6 +330,14 @@ const STEPS: Step[] = [
     render: (ctx) => <SendScene ctx={ctx} />,
   },
   {
+    id: 'compose',
+    label: 'Build a tx',
+    kicker: 'Now you try',
+    title: 'Build a transaction yourself',
+    body: 'A transaction has to balance: the coins Alice spends (the inputs) must equal what it creates (the outputs) plus the fee. Tap Alice’s coins to choose which ones to spend, and set how much to pay Bob. Watch the change and the fee. It only works when the sum balances, and any change coin must be at least 61 CKB, so you cannot leave a tiny leftover.',
+    render: () => <ComposerScene />,
+  },
+  {
     id: 'lifecycle',
     label: 'The life of a tx',
     kicker: 'From signed to settled',
@@ -712,6 +720,88 @@ function SendScene({ ctx }: { ctx: Ctx }) {
         >
           ↺ Reset
         </button>
+      </div>
+    </div>
+  )
+}
+
+/* ── compose: build a balanced transaction ──────────────────────────────── */
+
+const COMPOSER_COINS = [63, 80, 142, 200]
+const CELL_FLOOR = 61
+
+function ComposerScene() {
+  const [selected, setSelected] = useState<number[]>([])
+  const [amount, setAmount] = useState(120)
+  const toggle = (i: number) => setSelected((prev) => (prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]))
+
+  const inputsSum = round3(selected.reduce((s, i) => s + (COMPOSER_COINS[i] ?? 0), 0))
+  const change = round3(inputsSum - amount - FEE)
+  const covers = inputsSum >= round3(amount + FEE)
+  const changeTooSmall = covers && change > 0.0005 && change < CELL_FLOOR
+  const balanced = covers && (change < 0.0005 || change >= CELL_FLOOR)
+  const total = COMPOSER_COINS.reduce((a, b) => a + b, 0)
+
+  return (
+    <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-5">
+      <div className="flex flex-col items-center gap-2">
+        <span className="meta-label-sm">Alice’s coins · tap to spend ({fmt(total)} CKB in all)</span>
+        <div className="flex flex-wrap items-start justify-center gap-3">
+          {COMPOSER_COINS.map((v, i) => {
+            const sel = selected.includes(i)
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => toggle(i)}
+                aria-pressed={sel}
+                className="flex flex-col items-center gap-1 border p-2 transition-all"
+                style={{
+                  borderColor: sel ? 'var(--color-flow-in)' : 'var(--color-hairline)',
+                  transform: sel ? 'translateY(-3px)' : 'none',
+                  background: sel ? 'color-mix(in oklab, var(--color-flow-in) 8%, transparent)' : 'transparent',
+                }}
+              >
+                <CellCoin value={v} owner="A" {...(sel ? { role: 'input' as const } : {})} size={46} />
+                <span className="mono text-[8px] uppercase tracking-[0.1em]" style={{ color: sel ? 'var(--color-flow-in)' : 'var(--color-muted)' }}>
+                  {sel ? 'spending' : 'spend'}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="w-full max-w-xs">
+        <Slider label="Pay Bob" value={amount} onChange={setAmount} max={300} />
+      </div>
+
+      <div className="mono flex flex-wrap items-baseline justify-center gap-x-2 gap-y-1 text-[13px]">
+        <span style={{ color: 'var(--color-flow-in)' }}>{fmt(inputsSum)}</span>
+        <span className="text-[10px] uppercase tracking-[0.08em] text-muted">in</span>
+        <span className="text-muted">=</span>
+        <span style={{ color: 'var(--color-flow-out)' }}>{fmt(Math.min(amount, inputsSum))}</span>
+        <span className="text-[10px] uppercase tracking-[0.08em] text-muted">bob</span>
+        <span className="text-muted">+</span>
+        <span style={{ color: 'var(--color-ember)' }}>{fmt(Math.max(0, change))}</span>
+        <span className="text-[10px] uppercase tracking-[0.08em] text-muted">change</span>
+        <span className="text-muted">+</span>
+        <span className="text-bone-dim">{FEE}</span>
+        <span className="text-[10px] uppercase tracking-[0.08em] text-muted">fee</span>
+      </div>
+
+      <div className="flex min-h-[52px] items-center justify-center px-2 text-center">
+        {!covers ? (
+          <span className="mono text-[11px] text-muted">Select coins worth at least {fmt(round3(amount + FEE))} CKB to cover the payment and its fee.</span>
+        ) : changeTooSmall ? (
+          <span className="mono max-w-sm text-[11px]" style={{ color: 'var(--color-alarm)' }}>
+            The change would be {fmt(change)} CKB, below the 61 minimum. A coin cannot be that small. Add another coin, or change the amount.
+          </span>
+        ) : balanced ? (
+          <span className="mono border px-4 py-1.5 text-[11px] uppercase tracking-[0.12em]" style={{ color: 'var(--color-flow-out)', borderColor: 'var(--color-flow-out)' }}>
+            Balanced ✓ inputs = outputs + fee
+          </span>
+        ) : null}
       </div>
     </div>
   )
