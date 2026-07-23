@@ -390,7 +390,7 @@ function AccountsVsCells({ ctx }: { ctx: Ctx }) {
           <span className="meta-label-sm" style={{ color: 'var(--color-ember)' }}>The UTXO model · a piggy bank</span>
           <div className="flex min-h-[112px] items-center justify-center gap-3">
             {!paid ? (
-              <Wallet owner="Alice" ownerLetter="A" color={ALICE} coins={inputs} size={116} />
+              <Wallet owner="Alice" ownerLetter="A" color={ALICE} coins={inputs} size={116} coinScale={0.72} />
             ) : (
               <div className="flex items-center gap-2">
                 <div className="flex flex-col items-center gap-1">
