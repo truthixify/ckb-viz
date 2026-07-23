@@ -731,49 +731,171 @@ const COMPOSER_COINS = [63, 80, 142, 200]
 const CELL_FLOOR = 61
 
 function ComposerScene() {
+  const reduce = usePrefersReducedMotion()
   const [selected, setSelected] = useState<number[]>([])
   const [amount, setAmount] = useState(120)
-  const toggle = (i: number) => setSelected((prev) => (prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]))
+  const [playing, setPlaying] = useState(false)
+  const [flight, setFlight] = useState(0)
+  const [result, setResult] = useState<{ bob: number; change: number } | null>(null)
+  const timer = useRef<number | undefined>(undefined)
 
-  const inputsSum = round3(selected.reduce((s, i) => s + (COMPOSER_COINS[i] ?? 0), 0))
+  useEffect(() => () => window.clearTimeout(timer.current), [])
+
+  const clearResult = () => {
+    if (result) setResult(null)
+  }
+  const toggle = (i: number) => {
+    if (playing) return
+    clearResult()
+    setSelected((prev) => (prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]))
+  }
+
+  const selectedVals = selected.map((i) => COMPOSER_COINS[i]).filter((v): v is number => v !== undefined)
+  const inputsSum = round3(selectedVals.reduce((s, v) => s + v, 0))
   const change = round3(inputsSum - amount - FEE)
   const covers = inputsSum >= round3(amount + FEE)
   const changeTooSmall = covers && change > 0.0005 && change < CELL_FLOOR
   const balanced = covers && (change < 0.0005 || change >= CELL_FLOOR)
-  const total = COMPOSER_COINS.reduce((a, b) => a + b, 0)
+
+  const nIn = Math.max(1, selectedVals.length)
+  const deliverStart = nIn * STAG + ARRIVE + 60
+  const playMs = deliverStart + ARRIVE + 260
+
+  const play = () => {
+    if (!balanced || playing) return
+    const bob = Math.min(amount, inputsSum)
+    const ch = change
+    if (reduce) {
+      setResult({ bob, change: ch })
+      return
+    }
+    setFlight((f) => f + 1)
+    setPlaying(true)
+    setResult(null)
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => {
+      setPlaying(false)
+      setResult({ bob, change: ch })
+    }, playMs)
+  }
+  const reset = () => {
+    window.clearTimeout(timer.current)
+    setPlaying(false)
+    setSelected([])
+    setResult(null)
+  }
+
+  const aliceCoins = result && !playing && result.change > 0 ? [result.change] : []
+  const bobCoins = result && !playing && result.bob > 0 ? [result.bob] : []
 
   return (
-    <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-5">
-      <div className="flex flex-col items-center gap-2">
-        <span className="meta-label-sm">Alice’s coins · tap to spend ({fmt(total)} CKB in all)</span>
-        <div className="flex flex-wrap items-start justify-center gap-3">
-          {COMPOSER_COINS.map((v, i) => {
-            const sel = selected.includes(i)
-            return (
-              <button
-                key={i}
-                type="button"
-                onClick={() => toggle(i)}
-                aria-pressed={sel}
-                className="flex flex-col items-center gap-1 border p-2 transition-all"
-                style={{
-                  borderColor: sel ? 'var(--color-flow-in)' : 'var(--color-hairline)',
-                  transform: sel ? 'translateY(-3px)' : 'none',
-                  background: sel ? 'color-mix(in oklab, var(--color-flow-in) 8%, transparent)' : 'transparent',
-                }}
-              >
-                <CellCoin value={v} owner="A" {...(sel ? { role: 'input' as const } : {})} size={46} />
-                <span className="mono text-[8px] uppercase tracking-[0.1em]" style={{ color: sel ? 'var(--color-flow-in)' : 'var(--color-muted)' }}>
-                  {sel ? 'spending' : 'spend'}
-                </span>
-              </button>
-            )
-          })}
+    <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-4">
+      <div className="relative w-full" style={{ minHeight: 150 }}>
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+          <div className="flex flex-col items-center gap-1.5">
+            <Avatar name="Alice" color={ALICE} size={40} />
+            <Wallet owner="" ownerLetter="A" color={ALICE} coins={aliceCoins} size={92} emptyLabel={result ? 'no change' : ''} receiveKey={playing ? 0 : flight} />
+          </div>
+          <div className="flex flex-col items-center gap-2 px-2">
+            <span className="mono grid place-items-center border px-3 py-2 text-[9px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-ember)', borderColor: 'var(--color-ember)', minWidth: 88 }}>
+              transaction
+            </span>
+            <span className="mono text-[9px] uppercase tracking-[0.1em] text-muted">example fee {FEE}</span>
+          </div>
+          <div className="flex flex-col items-center gap-1.5">
+            <Avatar name="Bob" color={BOB} size={40} />
+            <Wallet owner="" ownerLetter="B" color={BOB} coins={bobCoins} size={92} emptyLabel="" receiveKey={playing ? 0 : flight} />
+          </div>
         </div>
+
+        {playing && !reduce && (
+          <div key={flight} className="pointer-events-none absolute inset-0">
+            {selectedVals.map((v, k) => (
+              <span
+                key={`in-${k}`}
+                className="learn-fly-outer"
+                style={cssVars(
+                  { position: 'absolute', top: FLY_TOP, marginLeft: -FLY_COIN / 2, marginTop: -FLY_COIN / 2, animation: `send-fly-x ${ARRIVE}ms cubic-bezier(.45,0,.55,1) ${k * STAG}ms both, forge-melt 260ms var(--ease-instrument) ${k * STAG + ARRIVE}ms both` },
+                  { '--l0': ALICE_X, '--l1': FORGE_X },
+                )}
+              >
+                <span className="learn-fly-inner" style={{ display: 'block', animation: `send-fly-y ${ARRIVE}ms cubic-bezier(.34,0,.5,1) ${k * STAG}ms both` }}>
+                  <CellCoin value={v} role="input" size={FLY_COIN} showBadge={false} />
+                </span>
+              </span>
+            ))}
+            <span
+              key="out-bob"
+              className="learn-fly-outer"
+              style={cssVars(
+                { position: 'absolute', top: FLY_TOP, marginLeft: -FLY_COIN / 2, marginTop: -FLY_COIN / 2, animation: `send-fly-x ${ARRIVE}ms cubic-bezier(.45,0,.55,1) ${deliverStart}ms both` },
+                { '--l0': FORGE_X, '--l1': BOB_X },
+              )}
+            >
+              <span className="learn-fly-inner" style={{ display: 'block', animation: `send-fly-y ${ARRIVE}ms cubic-bezier(.34,0,.5,1) ${deliverStart}ms both` }}>
+                <CellCoin value={Math.min(amount, inputsSum)} owner="B" role="output" size={FLY_COIN} />
+              </span>
+            </span>
+            {change >= CELL_FLOOR && (
+              <span
+                key="out-change"
+                className="learn-fly-outer"
+                style={cssVars(
+                  { position: 'absolute', top: FLY_TOP, marginLeft: -FLY_COIN / 2, marginTop: -FLY_COIN / 2, animation: `send-fly-x ${ARRIVE}ms cubic-bezier(.45,0,.55,1) ${deliverStart}ms both` },
+                  { '--l0': FORGE_X, '--l1': ALICE_X },
+                )}
+              >
+                <span className="learn-fly-inner" style={{ display: 'block', animation: `send-fly-y ${ARRIVE}ms cubic-bezier(.34,0,.5,1) ${deliverStart}ms both` }}>
+                  <CellCoin value={change} owner="A" role="output" size={FLY_COIN} />
+                </span>
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
+      {!result && (
+        <div className="flex flex-col items-center gap-2">
+          <span className="meta-label-sm">Alice’s coins · tap to spend</span>
+          <div className="flex flex-wrap items-start justify-center gap-3">
+            {COMPOSER_COINS.map((v, i) => {
+              const sel = selected.includes(i)
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => toggle(i)}
+                  aria-pressed={sel}
+                  disabled={playing}
+                  className="flex flex-col items-center gap-1 border p-2 transition-all disabled:opacity-40"
+                  style={{
+                    borderColor: sel ? 'var(--color-flow-in)' : 'var(--color-hairline)',
+                    transform: sel ? 'translateY(-3px)' : 'none',
+                    background: sel ? 'color-mix(in oklab, var(--color-flow-in) 8%, transparent)' : 'transparent',
+                    visibility: playing && sel ? 'hidden' : 'visible',
+                  }}
+                >
+                  <CellCoin value={v} owner="A" {...(sel ? { role: 'input' as const } : {})} size={44} />
+                  <span className="mono text-[8px] uppercase tracking-[0.1em]" style={{ color: sel ? 'var(--color-flow-in)' : 'var(--color-muted)' }}>
+                    {sel ? 'spending' : 'spend'}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="w-full max-w-xs">
-        <Slider label="Pay Bob" value={amount} onChange={setAmount} max={300} />
+        <Slider
+          label="Pay Bob"
+          value={amount}
+          onChange={(v) => {
+            clearResult()
+            setAmount(v)
+          }}
+          max={300}
+        />
       </div>
 
       <div className="mono flex flex-wrap items-baseline justify-center gap-x-2 gap-y-1 text-[13px]">
@@ -790,18 +912,28 @@ function ComposerScene() {
         <span className="text-[10px] uppercase tracking-[0.08em] text-muted">fee</span>
       </div>
 
-      <div className="flex min-h-[52px] items-center justify-center px-2 text-center">
-        {!covers ? (
+      <div className="flex min-h-[40px] flex-col items-center justify-center gap-2 px-2 text-center">
+        {result ? (
+          <button type="button" onClick={reset} className="mono border border-border px-4 py-2 text-[11px] uppercase tracking-[0.12em] text-bone-dim transition-colors hover:border-ember hover:text-ember">
+            ↺ Build another
+          </button>
+        ) : !covers ? (
           <span className="mono text-[11px] text-muted">Select coins worth at least {fmt(round3(amount + FEE))} CKB to cover the payment and its fee.</span>
         ) : changeTooSmall ? (
           <span className="mono max-w-sm text-[11px]" style={{ color: 'var(--color-alarm)' }}>
             The change would be {fmt(change)} CKB, below the 61 minimum. A coin cannot be that small. Add another coin, or change the amount.
           </span>
-        ) : balanced ? (
-          <span className="mono border px-4 py-1.5 text-[11px] uppercase tracking-[0.12em]" style={{ color: 'var(--color-flow-out)', borderColor: 'var(--color-flow-out)' }}>
-            Balanced ✓ inputs = outputs + fee
-          </span>
-        ) : null}
+        ) : (
+          <button
+            type="button"
+            onClick={play}
+            disabled={playing}
+            className="mono border px-5 py-2 text-[11px] font-medium uppercase tracking-[0.12em] transition-colors disabled:opacity-40"
+            style={{ borderColor: 'var(--color-flow-out)', color: 'var(--color-flow-out)' }}
+          >
+            {playing ? 'Sending…' : 'Balanced ✓ Sign and send'}
+          </button>
+        )}
       </div>
     </div>
   )
