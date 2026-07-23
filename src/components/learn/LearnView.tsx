@@ -112,6 +112,7 @@ export function LearnView({ onExplore }: { onExplore: () => void }) {
               key={s.id}
               type="button"
               onClick={() => setI(k)}
+              aria-current={active ? 'step' : undefined}
               className={clsx(
                 'flex shrink-0 items-center gap-3 border px-3 py-2.5 text-left transition-colors min-[820px]:border-0 min-[820px]:border-l-2 min-[820px]:px-4',
                 active
@@ -136,7 +137,7 @@ export function LearnView({ onExplore }: { onExplore: () => void }) {
           </div>
         </div>
 
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3" aria-live="polite">
           <span className="meta-label" style={{ color: 'var(--color-ember)' }}>
             {step.kicker}
           </span>
@@ -253,7 +254,7 @@ const STEPS: Step[] = [
     label: 'Bank vs piggy',
     kicker: 'The big idea',
     title: 'A bank account, or a piggy bank?',
-    body: 'Most money apps work like a bank account. The bank stores one number, your balance, and rewrites that number every time you pay. CKB does not work that way. Your money is a set of separate coins that you keep, the way a piggy bank holds coins. To pay someone you do not edit a number. You take some of your coins, destroy them, and create brand new coins: one for the person you are paying and one that gives back your change. Each coin is called a cell, and this way of holding money is called the UTXO model. Press Pay to compare the two.',
+    body: 'Most money apps work like a bank account: the bank keeps one number, your balance, and rewrites it when you pay. CKB is different. Your money is not a number at all. It is a set of separate coins you own, the way a piggy bank holds coins, and each coin is called a cell. This is the UTXO model. Press Pay to see how each side handles the same payment, then the next steps show what a coin really is.',
     render: (ctx) => <AccountsVsCells ctx={ctx} />,
   },
   {
@@ -269,12 +270,12 @@ const STEPS: Step[] = [
           <div className="flex items-center gap-8 min-[560px]:gap-12">
             <div className="flex flex-col items-center gap-2">
               <Avatar name="Alice" color={ALICE} size={52} />
-              <Wallet owner="" color={ALICE} coins={coins} size={128} />
+              <Wallet owner="" ownerLetter="A" color={ALICE} coins={coins} size={128} />
             </div>
             <span className="mono text-[22px]" style={{ color: 'var(--color-ember)' }}>→</span>
             <div className="flex flex-col items-center gap-2">
               <Avatar name="Bob" color={BOB} size={52} />
-              <Wallet owner="" color={BOB} coins={[]} size={128} emptyLabel="empty" />
+              <Wallet owner="" ownerLetter="B" color={BOB} coins={[]} size={128} emptyLabel="empty" />
             </div>
           </div>
           <Stepper label="Alice's balance" value={balance} onChange={setBalance} min={100} max={100000} step={50} />
@@ -287,34 +288,15 @@ const STEPS: Step[] = [
     label: 'What a balance is',
     kicker: 'Inside the wallet',
     title: 'A balance is a stack of coins',
-    body: "Alice has one wallet, but her balance is not stored as a single number. It is made of several separate coins sitting inside the wallet. Each coin is one cell. A cell records how much it is worth and whose key is allowed to spend it, shown here as the letter A for Alice. Add the coins together and you get her balance. Hover over a coin to inspect it.",
-    render: ({ balance }) => {
-      const coins = splitBalance(balance)
-      return (
-        <div className="flex flex-col items-center gap-5">
-          <Avatar name="Alice" color={ALICE} size={48} />
-          <PiggyBank size={116} color={ALICE} />
-          <div className="flex flex-col items-center gap-2">
-            <span className="meta-label-sm">inside her wallet</span>
-            <div className="flex flex-wrap items-center justify-center gap-4">
-              {coins.map((v, k) => (
-                <CellCoin key={k} value={v} owner="A" size={50} interactive />
-              ))}
-            </div>
-          </div>
-          <span className="mono text-[11px] text-muted">
-            {coins.length} coin{coins.length === 1 ? '' : 's'} · {fmt(balance)} CKB · each coin is one cell
-          </span>
-        </div>
-      )
-    },
+    body: "Alice has one wallet, but her balance is not stored as a single number anywhere. It is made of several separate coins inside the wallet, and each coin is one cell. A cell records how much it is worth and whose key can spend it, shown here as the letter A for Alice. Add the coins up and you get her balance. Hover over a coin to inspect it.",
+    render: ({ balance }) => <CellsScene balance={balance} />,
   },
   {
     id: 'guards',
     label: 'A coin’s rules',
     kicker: 'What guards a coin',
     title: 'Every coin carries its own rules',
-    body: "A cell is more than an amount. It carries two small programs. The first is the lock, which decides who is allowed to spend the coin: only the person holding the matching key. The second is the type, which decides what the coin is and what it may become, for example a token such as RUSD. A plain coin has only a lock. A token coin has both a lock and a type, and it still reserves ordinary CKB in order to exist.",
+    body: "A cell is more than an amount. It carries two small programs. The first is the lock, which decides who is allowed to spend the coin: only the person holding the matching key. The second is the type, which decides what the coin is. For a token like RUSD the type is not decoration: it points to the token's rulebook, and the coin's own data records how many tokens it holds. So a token payment must balance two things at once, the CKB capacity and the token amount. A plain coin has only a lock; a token coin has both, and it still reserves ordinary CKB in order to exist.",
     render: () => (
       <div className="flex flex-col items-center gap-8">
         <CellCoin value={100} owner="A" type="RUSD" size={116} interactive />
@@ -344,7 +326,7 @@ const STEPS: Step[] = [
     label: 'Making a payment',
     kicker: 'Old coins in, new coins out',
     title: 'How a payment actually works',
-    body: "Here is the payment itself. Alice's coins are taken out of her wallet and destroyed by the transaction. In their place the transaction creates new coins: one for Bob, and one that returns Alice's change. A small amount called the fee is kept by the miner who records the transaction, which is why the new coins add up to a little less than the old ones. Drag the amount, then press Sign and send. You can send again and again: each payment leaves Alice with a little less and adds another coin to Bob's wallet, just like spending in real life. Press Reset to start over.",
+    body: "Here is the payment itself. Alice's coins are taken out of her wallet and destroyed by the transaction. In their place the transaction creates new coins: one for Bob, and one that returns Alice's change. That change is a brand new coin with its own identity, not the same coin handed back. A small amount called the fee is kept by the miner who records the transaction, which is why the new coins add up to a little less than the old ones. Drag the amount, then press Sign and send. You can send again and again: each payment leaves Alice with a little less and adds another coin to Bob's wallet, just like spending in real life. Press Reset to start over.",
     render: (ctx) => <SendScene ctx={ctx} />,
   },
   {
@@ -359,24 +341,9 @@ const STEPS: Step[] = [
     id: 'recap',
     label: 'Recap',
     kicker: 'Putting it together',
-    title: 'Same wallets, new coins',
-    body: 'That is the whole idea. On CKB your money lives in coins called cells. Every coin has a value and a lock, and some coins also carry a type. To pay someone, a transaction destroys some of your coins and creates new ones, while the wallets themselves just hold whatever coins each person owns. You now know enough to open a real transaction and read it.',
-    render: ({ balance, amount }) => {
-      const send = Math.min(amount, Math.max(0, balance - FEE))
-      const change = Math.max(0, balance - send - FEE)
-      return (
-        <div className="flex flex-wrap items-start justify-center gap-10 min-[560px]:gap-16">
-          <div className="flex flex-col items-center gap-2">
-            <Avatar name="Alice" color={ALICE} size={48} />
-            <Wallet owner="holds now" color={ALICE} coins={change > 0 ? [change] : []} size={124} emptyLabel="empty" />
-          </div>
-          <div className="flex flex-col items-center gap-2">
-            <Avatar name="Bob" color={BOB} size={48} />
-            <Wallet owner="holds now" color={BOB} coins={send > 0 ? [send] : []} size={124} emptyLabel="empty" />
-          </div>
-        </div>
-      )
-    },
+    title: 'The same idea, in the real words',
+    body: 'That is the whole model. Your money lives in coins called cells, each guarded by a lock and sometimes a type, and a payment destroys some coins and creates new ones. The visualizer uses the real CKB names for these things. Here is how the words you just learned map to what you will see on screen, so you recognise every part of a real transaction.',
+    render: () => <RecapLegend />,
   },
 ]
 
@@ -415,7 +382,7 @@ function AccountsVsCells({ ctx }: { ctx: Ctx }) {
           <span className="meta-label-sm" style={{ color: 'var(--color-ember)' }}>The UTXO model · a piggy bank</span>
           <div className="flex min-h-[112px] items-center justify-center gap-3">
             {!paid ? (
-              <Wallet owner="Alice" color={ALICE} coins={inputs} size={116} />
+              <Wallet owner="Alice" ownerLetter="A" color={ALICE} coins={inputs} size={116} />
             ) : (
               <div className="flex items-center gap-2">
                 <div className="flex flex-col items-center gap-1">
@@ -427,8 +394,8 @@ function AccountsVsCells({ ctx }: { ctx: Ctx }) {
                   <span className="mono text-[8px] uppercase tracking-[0.1em] text-muted">destroyed</span>
                 </div>
                 <span className="mono text-[14px]" style={{ color: 'var(--color-ember)' }}>→</span>
-                <Wallet owner="Bob" color={BOB} coins={send > 0 ? [send] : []} size={92} coinRole="output" emptyLabel="none" />
-                <Wallet owner="Alice" color={ALICE} coins={change > 0 ? [change] : []} size={92} coinRole="output" emptyLabel="none" />
+                <Wallet owner="Bob" ownerLetter="B" color={BOB} coins={send > 0 ? [send] : []} size={92} coinRole="output" emptyLabel="none" />
+                <Wallet owner="Alice" ownerLetter="A" color={ALICE} coins={change > 0 ? [change] : []} size={92} coinRole="output" emptyLabel="none" />
               </div>
             )}
           </div>
@@ -444,6 +411,51 @@ function AccountsVsCells({ ctx }: { ctx: Ctx }) {
       >
         {paid ? '↺ Reset' : `▶ Pay Bob ${fmt(send)} CKB`}
       </button>
+    </div>
+  )
+}
+
+/* ── cells: a balance is a stack of coins ───────────────────────────────── */
+
+function CellsScene({ balance }: { balance: number }) {
+  const [revealed, setRevealed] = useState(false)
+  const coins = splitBalance(balance)
+  return (
+    <div className="flex flex-col items-center gap-5">
+      <Avatar name="Alice" color={ALICE} size={48} />
+      <PiggyBank size={116} color={ALICE} />
+      <div className="flex flex-col items-center gap-2">
+        <span className="meta-label-sm">inside her wallet</span>
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          {coins.map((v, k) => (
+            <CellCoin key={k} value={v} owner="A" size={50} interactive />
+          ))}
+        </div>
+      </div>
+      {!revealed ? (
+        <button
+          type="button"
+          onClick={() => setRevealed(true)}
+          className="mono border border-border px-4 py-2 text-[11px] uppercase tracking-[0.12em] text-bone-dim transition-colors hover:border-ember hover:text-ember"
+        >
+          Where is her {fmt(balance)} CKB stored?
+        </button>
+      ) : (
+        <div className="learn-anim flex flex-col items-center gap-1.5" style={{ animationName: 'learn-pop', animationDuration: '260ms' }}>
+          <span className="mono text-[13px] text-bone">
+            {coins.map((v, k) => (
+              <span key={k}>
+                {fmt(v)}
+                {k < coins.length - 1 ? ' + ' : ''}
+              </span>
+            ))}{' '}
+            = <span style={{ color: 'var(--color-ember)' }}>{fmt(balance)} CKB</span>
+          </span>
+          <span className="mono max-w-sm text-center text-[11px] text-muted">
+            Nowhere. There is no stored balance. It is only these {coins.length} coins added up.
+          </span>
+        </div>
+      )}
     </div>
   )
 }
@@ -586,7 +598,7 @@ function SendScene({ ctx }: { ctx: Ctx }) {
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           <div className="flex flex-col items-center gap-1.5">
             <Avatar name="Alice" color={ALICE} size={44} />
-            <Wallet owner="" color={ALICE} coins={aliceRest} size={104} emptyLabel="out of coins" receiveKey={playing ? 0 : flight} />
+            <Wallet owner="" ownerLetter="A" color={ALICE} coins={aliceRest} size={104} emptyLabel="out of coins" receiveKey={playing ? 0 : flight} />
           </div>
 
           <div className="flex flex-col items-center gap-2 px-2">
@@ -601,7 +613,7 @@ function SendScene({ ctx }: { ctx: Ctx }) {
 
           <div className="flex flex-col items-center gap-1.5">
             <Avatar name="Bob" color={BOB} size={44} />
-            <Wallet owner="" color={BOB} coins={payBob} size={104} emptyLabel="empty" receiveKey={playing ? 0 : flight} />
+            <Wallet owner="" ownerLetter="B" color={BOB} coins={payBob} size={104} emptyLabel="empty" receiveKey={playing ? 0 : flight} />
           </div>
         </div>
 
@@ -976,6 +988,64 @@ function MempoolStrip({ reduce }: { reduce: boolean }) {
             />
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+/* ── recap: the metaphor-to-viewer vocabulary bridge ────────────────────── */
+
+const LEGEND: { m: string; r: string; g: string }[] = [
+  { m: 'a coin', r: 'a cell', g: 'the one unit of value' },
+  { m: 'the number on a coin', r: 'Capacity', g: 'its CKB value, which is also its size' },
+  { m: 'whose key can spend it', r: 'Lock script', g: 'shown as an address, ckb1… or ckt1…' },
+  { m: 'the token stamp', r: 'Type script', g: 'the rulebook for a token like RUSD' },
+  { m: 'a coin you spend', r: 'Input', g: 'consumed by the transaction' },
+  { m: 'a coin that is created', r: 'Output', g: 'minted by the transaction' },
+  { m: "a coin's identity", r: 'OutPoint', g: 'a tx hash and index; this drives lineage' },
+  { m: 'proof you signed', r: 'Witness', g: 'the signature that satisfies the lock' },
+  { m: "the miner's cut", r: 'Fee', g: 'inputs minus outputs' },
+]
+
+const LEGEND_TEASERS: { r: string; g: string }[] = [
+  { r: 'Since', g: 'a coin that cannot be spent until a certain time or block' },
+  { r: 'Lineage', g: 'follow a coin back to the coin it was minted from' },
+]
+
+function RecapLegend() {
+  return (
+    <div className="mx-auto flex w-full max-w-xl flex-col gap-4">
+      <span className="meta-label" style={{ color: 'var(--color-ember)' }}>
+        what you learned → what the viewer calls it
+      </span>
+      <div className="flex flex-col border border-hairline">
+        {LEGEND.map((row, k) => (
+          <div
+            key={row.r}
+            className="grid grid-cols-[1fr_auto_1.5fr] items-center gap-2 px-3 py-2 min-[560px]:gap-4 min-[560px]:px-4"
+            style={{ borderTop: k === 0 ? undefined : '1px solid var(--color-hairline)' }}
+          >
+            <span className="text-[12px] leading-tight text-bone-dim">{row.m}</span>
+            <span className="mono text-[12px] text-muted">→</span>
+            <span className="flex flex-wrap items-baseline gap-x-2">
+              <span className="mono text-[12px] font-medium" style={{ color: 'var(--color-ember)' }}>
+                {row.r}
+              </span>
+              <span className="text-[11px] leading-tight text-muted">{row.g}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <span className="meta-label-sm">two more you will meet</span>
+        {LEGEND_TEASERS.map((t) => (
+          <span key={t.r} className="flex flex-wrap items-baseline gap-x-2">
+            <span className="mono text-[12px] font-medium" style={{ color: 'var(--color-dep)' }}>
+              {t.r}
+            </span>
+            <span className="text-[11px] leading-tight text-muted">{t.g}</span>
+          </span>
+        ))}
       </div>
     </div>
   )
