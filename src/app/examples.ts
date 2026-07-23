@@ -8,9 +8,18 @@ import { deploymentFor, type KnownScriptId } from '@/registry/codeHashes'
  * script args instead). This surfaces the decoder's range on demand, since the
  * network's latest transaction is usually a plain transfer.
  */
+export type ExampleCategory = 'tokens' | 'protocols' | 'objects'
+
+export const EXAMPLE_CATEGORIES: { id: ExampleCategory; label: string }[] = [
+  { id: 'tokens', label: 'Tokens' },
+  { id: 'protocols', label: 'Protocols' },
+  { id: 'objects', label: 'Digital objects' },
+]
+
 export interface ExampleKind {
   id: string
   label: string
+  category: ExampleCategory
   scriptId: KnownScriptId
   scriptType: 'lock' | 'type'
   /** The args to search by — fixed (exact) or a prefix (`0x` = any). */
@@ -22,10 +31,10 @@ export interface ExampleKind {
 }
 
 export const EXAMPLE_KINDS: ExampleKind[] = [
-  { id: 'dao', label: 'Nervos DAO', scriptId: 'nervosDao', scriptType: 'type', args: '0x', searchMode: 'exact', networks: ['mainnet', 'testnet'] },
-  { id: 'usdi', label: 'USDI', scriptId: 'usdi', scriptType: 'type', args: '0xd591ebdc69626647e056e13345fd830c8b876bb06aa07ba610479eb77153ea9f', searchMode: 'exact', networks: ['mainnet'] },
-  { id: 'rusd', label: 'RUSD', scriptId: 'rusd', scriptType: 'type', args: '0x360c9d87b2824c357958c23e8878f686001e88e9527a08ea229e7d9ba7fe39a7', searchMode: 'exact', networks: ['mainnet'] },
-  { id: 'spore', label: 'Spore (DOB)', scriptId: 'spore', scriptType: 'type', args: '0x', searchMode: 'prefix', networks: ['mainnet', 'testnet'] },
+  { id: 'usdi', label: 'USDI', category: 'tokens', scriptId: 'usdi', scriptType: 'type', args: '0xd591ebdc69626647e056e13345fd830c8b876bb06aa07ba610479eb77153ea9f', searchMode: 'exact', networks: ['mainnet'] },
+  { id: 'rusd', label: 'RUSD', category: 'tokens', scriptId: 'rusd', scriptType: 'type', args: '0x360c9d87b2824c357958c23e8878f686001e88e9527a08ea229e7d9ba7fe39a7', searchMode: 'exact', networks: ['mainnet'] },
+  { id: 'dao', label: 'Nervos DAO', category: 'protocols', scriptId: 'nervosDao', scriptType: 'type', args: '0x', searchMode: 'exact', networks: ['mainnet', 'testnet'] },
+  { id: 'spore', label: 'Spore (DOB)', category: 'objects', scriptId: 'spore', scriptType: 'type', args: '0x', searchMode: 'prefix', networks: ['mainnet', 'testnet'] },
 ]
 
 export interface ExampleSearch {

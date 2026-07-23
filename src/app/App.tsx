@@ -17,7 +17,7 @@ import { TransactionExtras } from '@/components/flow/TransactionExtras'
 import { Breadcrumb } from '@/components/lineage/Breadcrumb'
 import { Header } from '@/components/shell/Header'
 import { SummaryBanner } from '@/components/shell/SummaryBanner'
-import { ExamplesBar } from '@/components/shell/ExamplesBar'
+import { NavBar } from '@/components/shell/NavBar'
 import { EmptyState } from '@/components/states/EmptyState'
 import { ErrorState } from '@/components/states/ErrorState'
 import { LoadingState } from '@/components/states/LoadingState'
@@ -250,7 +250,7 @@ export function App() {
         onNetwork={onNetwork}
         onHome={onHome}
       />
-      <ExamplesBar
+      <NavBar
         network={network}
         finding={findingExample}
         onPick={pickExample}
@@ -258,6 +258,7 @@ export function App() {
         onSimulate={openSimulate}
         learn={learn}
         onLearn={openLearn}
+        onExplore={onHome}
       />
 
       <main className="flex-1 overflow-x-auto px-4 py-8 min-[560px]:px-6 min-[560px]:py-10">
