@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { clsx } from '@/app/clsx'
 import '@/styles/learn.css'
 import { Avatar, BankBuilding, CellCoin, PiggyBank, Padlock, Stamp, TxPacket, Wallet } from './kit'
@@ -86,7 +86,7 @@ export function LearnView({ onExplore }: { onExplore: () => void }) {
     setPayBob([])
   }
 
-  const steps = useMemo(() => STEPS, [])
+  const steps = STEPS
   const step = steps[i]!
   const last = steps.length - 1
   const ctx: Ctx = { balance, setBalance, amount, setAmount, payAlice, payBob, pay, resetPay }
@@ -254,7 +254,7 @@ const STEPS: Step[] = [
     label: 'Bank vs piggy',
     kicker: 'The big idea',
     title: 'A bank account, or a piggy bank?',
-    body: 'Most money apps work like a bank account: the bank keeps one number, your balance, and rewrites it when you pay. CKB is different. Your money is not a number at all. It is a set of separate coins you own, the way a piggy bank holds coins, and each coin is called a cell. This is the UTXO model. Press Pay to see how each side handles the same payment, then the next steps show what a coin really is.',
+    body: 'Most money apps work like a bank account: the bank keeps one number, your balance, and rewrites it when you pay. CKB is different. Your money is not a number at all. It is a set of separate coins you own, the way a piggy bank holds coins, and each coin is called a cell. This is the UTXO model, short for unspent transaction outputs. Press Pay to see how each side handles the same payment, then the next steps show what a coin really is.',
     render: (ctx) => <AccountsVsCells ctx={ctx} />,
   },
   {
@@ -262,7 +262,7 @@ const STEPS: Step[] = [
     label: 'The players',
     kicker: 'The people',
     title: 'Alice is going to pay Bob',
-    body: "Meet Alice and Bob. Each person keeps their coins in their own piggy bank, which we will call a wallet. Right now Alice holds some coins and Bob holds none. Over the next steps Alice will send Bob part of what she has. Use the control to change how much Alice starts with, and notice that her balance is simply the coins in her wallet added together. Hover over any coin to see what it holds.",
+    body: "Meet Alice and Bob. Each person keeps their coins in their own piggy bank, which we will call a wallet. Right now Alice holds some coins and Bob holds none. Over the next steps Alice will send Bob part of what she has. Use the control to change how much Alice starts with. Hover over any coin to see what it holds.",
     render: ({ balance, setBalance }) => {
       const coins = splitBalance(balance)
       return (
@@ -296,7 +296,7 @@ const STEPS: Step[] = [
     label: 'A coin’s rules',
     kicker: 'What guards a coin',
     title: 'Every coin carries its own rules',
-    body: "A cell is more than an amount. It carries two small programs. The first is the lock, which decides who is allowed to spend the coin: only the person holding the matching key. The second is the type, which decides what the coin is. For a token like RUSD the type is not decoration: it points to the token's rulebook, and the coin's own data records how many tokens it holds. So a token payment must balance two things at once, the CKB capacity and the token amount. A plain coin has only a lock; a token coin has both, and it still reserves ordinary CKB in order to exist.",
+    body: "A cell is more than an amount. It carries two small programs. The first is the lock, which decides who is allowed to spend the coin: only the person holding the matching key. The second is the type, which decides what the coin is. For a token like RUSD the type is not decoration: it points to the token's rulebook, and the coin's own data records how many tokens it holds. A token cell also tracks its own amount, which is why it needs a little more room than a plain coin. A plain coin has only a lock; a token coin has both, and it still reserves ordinary CKB in order to exist.",
     render: () => (
       <div className="flex flex-col items-center gap-8">
         <CellCoin value={100} owner="A" type="RUSD" size={116} interactive />
@@ -370,12 +370,12 @@ function AccountsVsCells({ ctx }: { ctx: Ctx }) {
         <div className="flex flex-col items-center justify-between gap-3 border border-hairline bg-inset px-4 py-5">
           <span className="meta-label-sm" style={{ color: 'var(--color-bone-dim)' }}>The account model · a bank</span>
           <BankBuilding size={92} />
-          <div className="flex w-full flex-col items-center gap-1 border-t border-hairline pt-3">
+          <div className="flex w-full flex-col items-center gap-1 border-t border-hairline pt-3" aria-live="polite">
             <span className="meta-label-sm">Alice's balance</span>
             <span key={paid ? 'a1' : 'a0'} className="learn-anim mono text-[26px] font-medium tracking-tight text-bone" style={{ animationName: 'learn-pop', animationDuration: '260ms' }}>
               {fmt(paid ? change : balance)} <span className="text-[11px] uppercase tracking-[0.1em] text-muted">CKB</span>
             </span>
-            <span className="mono text-[10px] uppercase tracking-[0.12em]" aria-hidden={!paid} style={{ color: 'var(--color-alarm)' }}>
+            <span className="mono text-[10px] uppercase tracking-[0.12em]" aria-hidden={!paid} style={{ color: 'var(--color-ember)' }}>
               {paid ? `paid ${fmt(send)} to Bob` : ' '}
             </span>
           </div>
@@ -392,18 +392,18 @@ function AccountsVsCells({ ctx }: { ctx: Ctx }) {
             {!paid ? (
               <Wallet owner="Alice" ownerLetter="A" color={ALICE} coins={inputs} size={116} />
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-center gap-2">
                 <div className="flex flex-col items-center gap-1">
                   <span className="flex gap-0.5">
                     {inputs.map((v, k) => (
-                      <CellCoin key={k} value={v} owner="A" role="input" consumed size={26} showBadge={false} interactive />
+                      <CellCoin key={k} value={v} owner="A" role="input" consumed size={24} showBadge={false} interactive />
                     ))}
                   </span>
                   <span className="mono text-[8px] uppercase tracking-[0.1em] text-muted">destroyed</span>
                 </div>
                 <span className="mono text-[14px]" style={{ color: 'var(--color-ember)' }}>→</span>
-                <Wallet owner="Bob" ownerLetter="B" color={BOB} coins={send > 0 ? [send] : []} size={92} coinRole="output" emptyLabel="none" />
-                <Wallet owner="Alice" ownerLetter="A" color={ALICE} coins={change > 0 ? [change] : []} size={92} coinRole="output" emptyLabel="none" />
+                <Wallet owner="Bob" ownerLetter="B" color={BOB} coins={send > 0 ? [send] : []} size={80} coinRole="output" emptyLabel="none" />
+                <Wallet owner="Alice" ownerLetter="A" color={ALICE} coins={change > 0 ? [change] : []} size={80} coinRole="output" emptyLabel="none" />
               </div>
             )}
           </div>
@@ -478,6 +478,15 @@ const CAP_BASE = 61
 const CAP_TYPE = 65
 const CAP_AMOUNT = 16
 
+// One accent: the capacity bar segments are the same ember at stepped opacities,
+// so it never borrows the blue/green/amber that mean input/output/dep elsewhere.
+const EMBER_RAMP = {
+  base: 'color-mix(in oklab, var(--color-ember) 62%, transparent)',
+  type: 'color-mix(in oklab, var(--color-ember) 42%, transparent)',
+  amount: 'color-mix(in oklab, var(--color-ember) 28%, transparent)',
+  data: 'color-mix(in oklab, var(--color-ember) 16%, transparent)',
+}
+
 function capacityCaption(token: boolean, extra: number): string {
   if (token) {
     const tail = extra > 0 ? `, plus ${extra} for extra data` : ''
@@ -493,7 +502,7 @@ function CapacityScene() {
   const typeBytes = token ? CAP_TYPE : 0
   const amountBytes = token ? CAP_AMOUNT : 0
   const total = CAP_BASE + typeBytes + amountBytes + extra
-  const barMax = 320
+  const barMax = 360
   const seg = (n: number) => `${(n / barMax) * 100}%`
   const coinSize = Math.round(58 + Math.min(1, (total - CAP_BASE) / 240) * 82)
 
@@ -507,8 +516,9 @@ function CapacityScene() {
               key={k}
               type="button"
               onClick={() => setToken(k === 'token')}
+              aria-pressed={on}
               className="mono px-4 py-1.5 text-[10px] uppercase tracking-[0.12em] transition-colors"
-              style={on ? { background: 'color-mix(in oklab, var(--color-ember) 18%, transparent)', color: 'var(--color-ember)' } : { color: 'var(--color-muted)' }}
+              style={on ? { background: 'color-mix(in oklab, var(--color-ember) 18%, transparent)', color: 'var(--color-ember)' } : { color: 'var(--color-bone-dim)' }}
             >
               {labelText}
             </button>
@@ -522,16 +532,16 @@ function CapacityScene() {
 
       <div className="w-full">
         <div className="flex h-6 w-full overflow-hidden border border-hairline bg-inset">
-          <div className="h-full" style={{ width: seg(CAP_BASE), background: 'color-mix(in oklab, var(--color-ember) 55%, transparent)' }} />
-          {token && <div className="h-full transition-[width] duration-200 ease-out" style={{ width: seg(CAP_TYPE), background: 'var(--color-dep)' }} />}
-          {token && <div className="h-full transition-[width] duration-200 ease-out" style={{ width: seg(CAP_AMOUNT), background: 'var(--color-flow-out)' }} />}
-          <div className="h-full transition-[width] duration-200 ease-out" style={{ width: seg(extra), background: 'var(--color-flow-in)' }} />
+          <div className="h-full" style={{ width: seg(CAP_BASE), background: EMBER_RAMP.base }} />
+          {token && <div className="h-full transition-[width] duration-200 ease-out" style={{ width: seg(CAP_TYPE), background: EMBER_RAMP.type }} />}
+          {token && <div className="h-full transition-[width] duration-200 ease-out" style={{ width: seg(CAP_AMOUNT), background: EMBER_RAMP.amount }} />}
+          <div className="h-full transition-[width] duration-200 ease-out" style={{ width: seg(extra), background: EMBER_RAMP.data }} />
         </div>
-        <div className="mt-2 flex flex-wrap justify-center gap-x-5 gap-y-1">
-          <span className="mono text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--color-ember)' }}>■ base 61</span>
-          {token && <span className="mono text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--color-dep)' }}>■ type script 65</span>}
-          {token && <span className="mono text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--color-flow-out)' }}>■ amount 16</span>}
-          <span className="mono text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--color-flow-in)' }}>■ data {extra}</span>
+        <div className="mt-2 flex flex-wrap justify-center gap-x-5 gap-y-1 text-bone-dim">
+          <span className="mono text-[10px] uppercase tracking-[0.1em]"><span style={{ color: EMBER_RAMP.base }}>■</span> base 61</span>
+          {token && <span className="mono text-[10px] uppercase tracking-[0.1em]"><span style={{ color: EMBER_RAMP.type }}>■</span> type script 65</span>}
+          {token && <span className="mono text-[10px] uppercase tracking-[0.1em]"><span style={{ color: EMBER_RAMP.amount }}>■</span> amount 16</span>}
+          <span className="mono text-[10px] uppercase tracking-[0.1em]"><span style={{ color: EMBER_RAMP.data }}>■</span> data {extra}</span>
         </div>
       </div>
 
@@ -778,6 +788,7 @@ function AliceInputWallet({
               key={i}
               type="button"
               onClick={() => onRemove(i)}
+              aria-label={`Take the ${fmt(COMPOSER_COINS[i] ?? 0)} CKB coin back out`}
               title="Tap to take this coin back out"
               className="block transition-transform hover:-translate-y-0.5"
               style={{ animation: 'coin-in-slot 320ms cubic-bezier(.2,.6,.3,1) both' }}
@@ -867,7 +878,7 @@ function ComposerScene() {
           </div>
           <div className="flex flex-col items-center gap-1.5">
             <Avatar name="Bob" color={BOB} size={40} />
-            <Wallet owner="" ownerLetter="B" color={BOB} coins={bobCoins} size={92} emptyLabel="" receiveKey={playing ? 0 : flight} />
+            <Wallet owner="" ownerLetter="B" color={BOB} coins={bobCoins} size={92} emptyLabel="empty" receiveKey={playing ? 0 : flight} />
           </div>
         </div>
 
@@ -930,6 +941,7 @@ function ComposerScene() {
                     key={i}
                     type="button"
                     onClick={() => add(i)}
+                    aria-label={`Add the ${fmt(v)} CKB coin to Alice's wallet`}
                     className="flex flex-col items-center gap-1 border border-hairline p-2 transition-colors hover:border-flow-in"
                   >
                     <CellCoin value={v} owner="A" size={44} />
@@ -987,9 +999,9 @@ function ComposerScene() {
             onClick={play}
             disabled={playing}
             className="mono border px-5 py-2 text-[11px] font-medium uppercase tracking-[0.12em] transition-colors disabled:opacity-40"
-            style={{ borderColor: 'var(--color-flow-out)', color: 'var(--color-flow-out)' }}
+            style={{ borderColor: 'var(--color-ember)', color: 'var(--color-ember)' }}
           >
-            {playing ? 'Sending…' : 'Balanced ✓ Sign and send'}
+            {playing ? 'Sending…' : '✓ Sign & send'}
           </button>
         )}
       </div>
@@ -1049,7 +1061,7 @@ function stageDetail(k: number, o: { invalid: boolean; rejected: boolean; confir
     case 3:
       return {
         title: 'Proposed',
-        desc: 'CKB records a transaction in two steps. It is first announced in a block’s proposal zone, then a later block actually commits it a few blocks on. That gap defends against certain attacks.',
+        desc: 'CKB records a transaction in two steps. It is first announced in a block’s proposal zone, then a later block actually commits it a few blocks on. The gap gives every node time to receive the transaction before it is committed, which keeps block production fair.',
         rows: [['Step', '1 of 2 · propose'], ['Block', 'not yet']],
       }
     case 4:
@@ -1144,11 +1156,12 @@ function LifecycleScene() {
               key={m}
               type="button"
               onClick={() => setMode(m)}
+              aria-pressed={mode === m}
               className="mono px-4 py-1.5 text-[10px] uppercase tracking-[0.12em] transition-colors"
               style={
                 mode === m
                   ? { background: m === 'invalid' ? 'color-mix(in oklab, var(--color-alarm) 18%, transparent)' : 'color-mix(in oklab, var(--color-ember) 18%, transparent)', color: m === 'invalid' ? 'var(--color-alarm)' : 'var(--color-ember)' }
-                  : { color: 'var(--color-muted)' }
+                  : { color: 'var(--color-bone-dim)' }
               }
             >
               {m === 'valid' ? 'Valid tx' : 'Invalid tx'}
@@ -1164,18 +1177,20 @@ function LifecycleScene() {
         </button>
       </div>
 
-      <div className="relative w-full px-1 pt-8">
-        <div className="absolute left-1 right-1 top-[calc(2rem+9px)] h-px bg-hairline" />
+      <div className="relative w-full pt-8">
+        {/* The five station dots sit at the centres of five equal columns, i.e.
+            10/30/50/70/90%; the rail, fill and packet are anchored to match. */}
+        <div className="absolute left-[10%] right-[10%] top-[calc(2rem+9px)] h-px bg-hairline" />
         <div
-          className="absolute left-1 top-[calc(2rem+9px)] h-px"
-          style={{ width: `${fillPct}%`, maxWidth: 'calc(100% - 8px)', background: invalid ? 'var(--color-alarm)' : 'var(--color-ember)', transition: 'width 560ms cubic-bezier(.5,0,.2,1)' }}
+          className="absolute top-[calc(2rem+9px)] h-px"
+          style={{ left: '10%', width: `${fillPct * 0.8}%`, background: invalid ? 'var(--color-alarm)' : 'var(--color-ember)', transition: 'width 560ms cubic-bezier(.5,0,.2,1)' }}
         />
 
         <span
           className="learn-packet absolute"
           style={{
             top: 0,
-            left: `${packetStage * 25}%`,
+            left: `${10 + packetStage * 20}%`,
             marginLeft: -20,
             transition: 'left 560ms cubic-bezier(.5,0,.2,1)',
             animation: rejected
@@ -1190,7 +1205,7 @@ function LifecycleScene() {
           <TxPacket size={40} validated={!invalid && stage >= GATE} rejected={rejected} />
         </span>
 
-        <div className="relative flex justify-between">
+        <div className="relative grid grid-cols-5">
           {STATIONS.map((s, k) => {
             const on = invalid ? k <= GATE : stage >= k
             const isCurrent = k === packetStage && !rejected
@@ -1204,8 +1219,7 @@ function LifecycleScene() {
                 type="button"
                 onClick={() => goTo(k)}
                 disabled={disabled}
-                className="group flex flex-col items-center gap-2 disabled:cursor-default"
-                style={{ maxWidth: 88 }}
+                className="group flex flex-col items-center gap-2 px-1 disabled:cursor-default"
               >
                 <span className="relative inline-flex h-4 w-4 items-center justify-center border transition-colors group-hover:enabled:border-ember" style={{ borderColor: on ? tint : 'var(--color-border)', background: 'var(--color-panel)' }}>
                   {isCurrent && !reduce && <span style={{ position: 'absolute', inset: -3, border: `1px solid ${tint}`, animation: 'lc-pulse 1.6s ease-out infinite' }} />}
@@ -1221,7 +1235,7 @@ function LifecycleScene() {
         </div>
       </div>
 
-      <div className="w-full max-w-lg border border-hairline bg-inset px-4 py-3" style={{ minHeight: 128 }}>
+      <div className="w-full max-w-lg border border-hairline bg-inset px-4 py-3" style={{ minHeight: 128 }} aria-live="polite">
         <div className="flex items-center gap-2">
           <span style={{ width: 7, height: 7, background: detail.tone === 'alarm' ? 'var(--color-alarm)' : detail.tone === 'ok' ? 'var(--color-flow-out)' : 'var(--color-ember)' }} />
           <span className="mono text-[12px] font-medium uppercase tracking-[0.1em] text-bone">{detail.title}</span>
