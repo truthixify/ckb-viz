@@ -47,6 +47,7 @@ interface Ctx {
   payBob: number[]
   pay: (amount: number) => void
   resetPay: () => void
+  reduce: boolean
 }
 
 const round3 = (n: number) => Math.round(n * 1000) / 1000
@@ -86,10 +87,11 @@ export function LearnView({ onExplore }: { onExplore: () => void }) {
     setPayBob([])
   }
 
+  const reduce = usePrefersReducedMotion()
   const steps = STEPS
   const step = steps[i]!
   const last = steps.length - 1
-  const ctx: Ctx = { balance, setBalance, amount, setAmount, payAlice, payBob, pay, resetPay }
+  const ctx: Ctx = { balance, setBalance, amount, setAmount, payAlice, payBob, pay, resetPay, reduce }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -335,7 +337,7 @@ const STEPS: Step[] = [
     kicker: 'Now you try',
     title: 'Build a transaction yourself',
     body: 'A transaction has to balance: the coins Alice spends (the inputs) must equal what it creates (the outputs) plus the fee. Tap Alice’s coins to choose which ones to spend, and set how much to pay Bob. Watch the change and the fee. It only works when the sum balances, and any change coin must be at least 61 CKB, so you cannot leave a tiny leftover.',
-    render: () => <ComposerScene />,
+    render: (ctx) => <ComposerScene reduce={ctx.reduce} />,
   },
   {
     id: 'lifecycle',
@@ -343,7 +345,7 @@ const STEPS: Step[] = [
     kicker: 'From signed to settled',
     title: 'What happens after you press send',
     body: 'A transaction does not settle the instant it is signed. It moves through several stages first. It is broadcast to the network, waits in a shared pool while a node checks its rules, and is then recorded into a block in two steps. Click any stage on the road to read what happens there. Switch to an invalid transaction to see what a node does when a rule fails.',
-    render: () => <LifecycleScene />,
+    render: (ctx) => <LifecycleScene reduce={ctx.reduce} />,
   },
   {
     id: 'recap',
@@ -428,17 +430,24 @@ function AccountsVsCells({ ctx }: { ctx: Ctx }) {
 function CellsScene({ balance }: { balance: number }) {
   const [revealed, setRevealed] = useState(false)
   const coins = splitBalance(balance)
+  const coinSize = coins.length <= 3 ? 36 : 28
   return (
     <div className="flex flex-col items-center gap-5">
       <Avatar name="Alice" color={ALICE} size={48} />
-      <PiggyBank size={116} color={ALICE} />
-      <div className="flex flex-col items-center gap-2">
-        <span className="meta-label-sm">inside her wallet</span>
-        <div className="flex flex-wrap items-center justify-center gap-4">
-          {coins.map((v, k) => (
-            <CellCoin key={k} value={v} owner="A" size={50} interactive />
-          ))}
+      <div className="flex flex-col items-center gap-1">
+        {/* A cut-away wallet: the coins sit inside the belly, not below it. */}
+        <div className="relative" style={{ width: 208, height: (208 * 56) / 72 }}>
+          <PiggyBank size={208} color={ALICE} />
+          <div
+            className="absolute flex flex-wrap items-center justify-center gap-2"
+            style={{ left: '15%', top: '28%', width: '64%', height: '46%' }}
+          >
+            {coins.map((v, k) => (
+              <CellCoin key={k} value={v} owner="A" size={coinSize} interactive />
+            ))}
+          </div>
         </div>
+        <span className="meta-label-sm">inside Alice's wallet</span>
       </div>
       {!revealed ? (
         <button
@@ -566,9 +575,59 @@ const FLY_COIN = 34
 const STAG = 90
 const ARRIVE = 640
 
+/** The one-shot flight shared by the payment and the composer: the input coins
+ *  travel to the transaction and melt, then the minted Bob and change coins fly
+ *  out to their wallets. Rendered only while a payment is playing. */
+function TxFlight({ inputs, bobValue, changeValue, renderChange, deliverStart }: {
+  inputs: number[]
+  bobValue: number
+  changeValue: number
+  renderChange: boolean
+  deliverStart: number
+}) {
+  const outer = (l0: string, l1: string, delay: number, melt: boolean): React.CSSProperties =>
+    cssVars(
+      {
+        position: 'absolute',
+        top: FLY_TOP,
+        marginLeft: -FLY_COIN / 2,
+        marginTop: -FLY_COIN / 2,
+        animation: melt
+          ? `send-fly-x ${ARRIVE}ms cubic-bezier(.45,0,.55,1) ${delay}ms both, forge-melt 260ms var(--ease-instrument) ${delay + ARRIVE}ms both`
+          : `send-fly-x ${ARRIVE}ms cubic-bezier(.45,0,.55,1) ${delay}ms both`,
+      },
+      { '--l0': l0, '--l1': l1 },
+    )
+  const inner = (delay: number): React.CSSProperties => ({ display: 'block', animation: `send-fly-y ${ARRIVE}ms cubic-bezier(.34,0,.5,1) ${delay}ms both` })
+  return (
+    <div className="pointer-events-none absolute inset-0">
+      {inputs.map((v, k) => (
+        <span key={`in-${k}`} className="learn-fly-outer" style={outer(ALICE_X, FORGE_X, k * STAG, true)}>
+          <span className="learn-fly-inner" style={inner(k * STAG)}>
+            <CellCoin value={v} role="input" size={FLY_COIN} showBadge={false} />
+          </span>
+        </span>
+      ))}
+      {bobValue > 0 && (
+        <span key="out-bob" className="learn-fly-outer" style={outer(FORGE_X, BOB_X, deliverStart, false)}>
+          <span className="learn-fly-inner" style={inner(deliverStart)}>
+            <CellCoin value={bobValue} owner="B" role="output" size={FLY_COIN} />
+          </span>
+        </span>
+      )}
+      {renderChange && (
+        <span key="out-change" className="learn-fly-outer" style={outer(FORGE_X, ALICE_X, deliverStart, false)}>
+          <span className="learn-fly-inner" style={inner(deliverStart)}>
+            <CellCoin value={changeValue} owner="A" role="output" size={FLY_COIN} />
+          </span>
+        </span>
+      )}
+    </div>
+  )
+}
+
 function SendScene({ ctx }: { ctx: Ctx }) {
-  const { payAlice, payBob, amount, setAmount, pay, resetPay } = ctx
-  const reduce = usePrefersReducedMotion()
+  const { payAlice, payBob, amount, setAmount, pay, resetPay, reduce } = ctx
   const [playing, setPlaying] = useState(false)
   const [flight, setFlight] = useState(0)
   const timer = useRef<number | undefined>(undefined)
@@ -616,13 +675,13 @@ function SendScene({ ctx }: { ctx: Ctx }) {
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           <div className="flex flex-col items-center gap-1.5">
             <Avatar name="Alice" color={ALICE} size={44} />
-            <Wallet owner="" ownerLetter="A" color={ALICE} coins={aliceRest} size={104} emptyLabel="out of coins" receiveKey={playing ? 0 : flight} />
+            <Wallet owner="" ownerLetter="A" color={ALICE} coins={aliceRest} size={96} emptyLabel="out of coins" receiveKey={playing ? 0 : flight} />
           </div>
 
           <div className="flex flex-col items-center gap-2 px-2">
             <span
               className="mono grid place-items-center border px-3 py-2 text-[9px] uppercase tracking-[0.14em]"
-              style={{ color: 'var(--color-ember)', borderColor: 'var(--color-ember)', minWidth: 92 }}
+              style={{ color: 'var(--color-ember)', borderColor: 'var(--color-ember)', minWidth: 80 }}
             >
               transaction
             </span>
@@ -631,75 +690,12 @@ function SendScene({ ctx }: { ctx: Ctx }) {
 
           <div className="flex flex-col items-center gap-1.5">
             <Avatar name="Bob" color={BOB} size={44} />
-            <Wallet owner="" ownerLetter="B" color={BOB} coins={payBob} size={104} emptyLabel="empty" receiveKey={playing ? 0 : flight} />
+            <Wallet owner="" ownerLetter="B" color={BOB} coins={payBob} size={96} emptyLabel="empty" receiveKey={playing ? 0 : flight} />
           </div>
         </div>
 
         {playing && !reduce && (
-          <div key={flight} className="pointer-events-none absolute inset-0">
-            {inputs.map((v, k) => (
-              <span
-                key={`in-${k}`}
-                className="learn-fly-outer"
-                style={cssVars(
-                  {
-                    position: 'absolute',
-                    top: FLY_TOP,
-                    marginLeft: -FLY_COIN / 2,
-                    marginTop: -FLY_COIN / 2,
-                    animation: `send-fly-x ${ARRIVE}ms cubic-bezier(.45,0,.55,1) ${k * STAG}ms both, forge-melt 260ms var(--ease-instrument) ${k * STAG + ARRIVE}ms both`,
-                  },
-                  { '--l0': ALICE_X, '--l1': FORGE_X },
-                )}
-              >
-                <span className="learn-fly-inner" style={{ display: 'block', animation: `send-fly-y ${ARRIVE}ms cubic-bezier(.34,0,.5,1) ${k * STAG}ms both` }}>
-                  <CellCoin value={v} role="input" size={FLY_COIN} showBadge={false} />
-                </span>
-              </span>
-            ))}
-
-            {send > 0 && (
-              <span
-                key="out-bob"
-                className="learn-fly-outer"
-                style={cssVars(
-                  {
-                    position: 'absolute',
-                    top: FLY_TOP,
-                    marginLeft: -FLY_COIN / 2,
-                    marginTop: -FLY_COIN / 2,
-                    animation: `send-fly-x ${ARRIVE}ms cubic-bezier(.45,0,.55,1) ${deliverStart}ms both`,
-                  },
-                  { '--l0': FORGE_X, '--l1': BOB_X },
-                )}
-              >
-                <span className="learn-fly-inner" style={{ display: 'block', animation: `send-fly-y ${ARRIVE}ms cubic-bezier(.34,0,.5,1) ${deliverStart}ms both` }}>
-                  <CellCoin value={send} owner="B" role="output" size={FLY_COIN} />
-                </span>
-              </span>
-            )}
-
-            {change > 0 && (
-              <span
-                key="out-change"
-                className="learn-fly-outer"
-                style={cssVars(
-                  {
-                    position: 'absolute',
-                    top: FLY_TOP,
-                    marginLeft: -FLY_COIN / 2,
-                    marginTop: -FLY_COIN / 2,
-                    animation: `send-fly-x ${ARRIVE}ms cubic-bezier(.45,0,.55,1) ${deliverStart}ms both`,
-                  },
-                  { '--l0': FORGE_X, '--l1': ALICE_X },
-                )}
-              >
-                <span className="learn-fly-inner" style={{ display: 'block', animation: `send-fly-y ${ARRIVE}ms cubic-bezier(.34,0,.5,1) ${deliverStart}ms both` }}>
-                  <CellCoin value={change} owner="A" role="output" size={FLY_COIN} />
-                </span>
-              </span>
-            )}
-          </div>
+          <TxFlight key={flight} inputs={inputs} bobValue={send} changeValue={change} renderChange={change > 0} deliverStart={deliverStart} />
         )}
       </div>
 
@@ -739,7 +735,7 @@ function SendScene({ ctx }: { ctx: Ctx }) {
 
 const COMPOSER_COINS = [63, 80, 142, 200]
 const CELL_FLOOR = 61
-const COMPOSER_PIGGY = 118
+const COMPOSER_PIGGY = 104
 
 /** Alice's wallet in the composer: the coins she has chosen to spend sit inside
  *  it and drop in as they are added; tapping one takes it back out. While the
@@ -801,28 +797,37 @@ function AliceInputWallet({
   )
 }
 
-function ComposerScene() {
-  const reduce = usePrefersReducedMotion()
+function ComposerScene({ reduce }: { reduce: boolean }) {
   const [selected, setSelected] = useState<number[]>([])
   const [amount, setAmount] = useState(120)
   const [playing, setPlaying] = useState(false)
   const [flight, setFlight] = useState(0)
   const [result, setResult] = useState<{ bob: number; change: number } | null>(null)
   const timer = useRef<number | undefined>(undefined)
+  const rootRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => () => window.clearTimeout(timer.current), [])
 
+  // Adding or removing a coin unmounts the button that had focus, which would
+  // drop keyboard focus to the body. Keep it in the composer instead.
+  const keepFocusInScene = () => {
+    requestAnimationFrame(() => {
+      if (document.activeElement === document.body) rootRef.current?.focus()
+    })
+  }
   const clearResult = () => {
     if (result) setResult(null)
   }
   const add = (i: number) => {
     if (playing || result) return
     setSelected((prev) => (prev.includes(i) ? prev : [...prev, i]))
+    keepFocusInScene()
   }
   const remove = (i: number) => {
     if (playing) return
     clearResult()
     setSelected((prev) => prev.filter((x) => x !== i))
+    keepFocusInScene()
   }
 
   const selectedVals = selected.map((i) => COMPOSER_COINS[i]).filter((v): v is number => v !== undefined)
@@ -863,7 +868,7 @@ function ComposerScene() {
   const bobCoins = result && !playing && result.bob > 0 ? [result.bob] : []
 
   return (
-    <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-4">
+    <div ref={rootRef} tabIndex={-1} className="mx-auto flex w-full max-w-xl flex-col items-center gap-4 outline-none">
       <div className="relative w-full" style={{ minHeight: 164 }}>
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           <div className="flex flex-col items-center gap-1.5">
@@ -871,60 +876,19 @@ function ComposerScene() {
             <AliceInputWallet selected={selected} playing={playing} result={result} onRemove={remove} />
           </div>
           <div className="flex flex-col items-center gap-2 px-2">
-            <span className="mono grid place-items-center border px-3 py-2 text-[9px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-ember)', borderColor: 'var(--color-ember)', minWidth: 88 }}>
+            <span className="mono grid place-items-center border px-3 py-2 text-[9px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-ember)', borderColor: 'var(--color-ember)', minWidth: 80 }}>
               transaction
             </span>
             <span className="mono text-[9px] uppercase tracking-[0.1em] text-muted">example fee {FEE}</span>
           </div>
           <div className="flex flex-col items-center gap-1.5">
             <Avatar name="Bob" color={BOB} size={40} />
-            <Wallet owner="" ownerLetter="B" color={BOB} coins={bobCoins} size={92} emptyLabel="empty" receiveKey={playing ? 0 : flight} />
+            <Wallet owner="" ownerLetter="B" color={BOB} coins={bobCoins} size={88} emptyLabel="empty" receiveKey={playing ? 0 : flight} />
           </div>
         </div>
 
         {playing && !reduce && (
-          <div key={flight} className="pointer-events-none absolute inset-0">
-            {selectedVals.map((v, k) => (
-              <span
-                key={`in-${k}`}
-                className="learn-fly-outer"
-                style={cssVars(
-                  { position: 'absolute', top: FLY_TOP, marginLeft: -FLY_COIN / 2, marginTop: -FLY_COIN / 2, animation: `send-fly-x ${ARRIVE}ms cubic-bezier(.45,0,.55,1) ${k * STAG}ms both, forge-melt 260ms var(--ease-instrument) ${k * STAG + ARRIVE}ms both` },
-                  { '--l0': ALICE_X, '--l1': FORGE_X },
-                )}
-              >
-                <span className="learn-fly-inner" style={{ display: 'block', animation: `send-fly-y ${ARRIVE}ms cubic-bezier(.34,0,.5,1) ${k * STAG}ms both` }}>
-                  <CellCoin value={v} role="input" size={FLY_COIN} showBadge={false} />
-                </span>
-              </span>
-            ))}
-            <span
-              key="out-bob"
-              className="learn-fly-outer"
-              style={cssVars(
-                { position: 'absolute', top: FLY_TOP, marginLeft: -FLY_COIN / 2, marginTop: -FLY_COIN / 2, animation: `send-fly-x ${ARRIVE}ms cubic-bezier(.45,0,.55,1) ${deliverStart}ms both` },
-                { '--l0': FORGE_X, '--l1': BOB_X },
-              )}
-            >
-              <span className="learn-fly-inner" style={{ display: 'block', animation: `send-fly-y ${ARRIVE}ms cubic-bezier(.34,0,.5,1) ${deliverStart}ms both` }}>
-                <CellCoin value={Math.min(amount, inputsSum)} owner="B" role="output" size={FLY_COIN} />
-              </span>
-            </span>
-            {change >= CELL_FLOOR && (
-              <span
-                key="out-change"
-                className="learn-fly-outer"
-                style={cssVars(
-                  { position: 'absolute', top: FLY_TOP, marginLeft: -FLY_COIN / 2, marginTop: -FLY_COIN / 2, animation: `send-fly-x ${ARRIVE}ms cubic-bezier(.45,0,.55,1) ${deliverStart}ms both` },
-                  { '--l0': FORGE_X, '--l1': ALICE_X },
-                )}
-              >
-                <span className="learn-fly-inner" style={{ display: 'block', animation: `send-fly-y ${ARRIVE}ms cubic-bezier(.34,0,.5,1) ${deliverStart}ms both` }}>
-                  <CellCoin value={change} owner="A" role="output" size={FLY_COIN} />
-                </span>
-              </span>
-            )}
-          </div>
+          <TxFlight key={flight} inputs={selectedVals} bobValue={Math.min(amount, inputsSum)} changeValue={change} renderChange={change >= CELL_FLOOR} deliverStart={deliverStart} />
         )}
       </div>
 
@@ -987,6 +951,8 @@ function ComposerScene() {
           <button type="button" onClick={reset} className="mono border border-border px-4 py-2 text-[11px] uppercase tracking-[0.12em] text-bone-dim transition-colors hover:border-ember hover:text-ember">
             ↺ Build another
           </button>
+        ) : amount <= 0 ? (
+          <span className="mono text-[11px] text-muted">Set an amount to pay Bob.</span>
         ) : !covers ? (
           <span className="mono text-[11px] text-muted">Add coins worth at least {fmt(round3(amount + FEE))} CKB to cover the payment and its fee.</span>
         ) : changeTooSmall ? (
@@ -1077,8 +1043,7 @@ function stageDetail(k: number, o: { invalid: boolean; rejected: boolean; confir
   }
 }
 
-function LifecycleScene() {
-  const reduce = usePrefersReducedMotion()
+function LifecycleScene({ reduce }: { reduce: boolean }) {
   const [mode, setMode] = useState<'valid' | 'invalid'>('valid')
   const [stage, setStage] = useState(0)
   const [rejected, setRejected] = useState(false)
@@ -1341,6 +1306,9 @@ function RecapLegend() {
           </span>
         ))}
       </div>
+      <p className="text-[11px] leading-relaxed text-muted">
+        Real transactions vary. Most are a transfer like the one you built, but some carry tokens, DAO deposits, or many cells at once. The summary panel names what it can read.
+      </p>
     </div>
   )
 }
@@ -1349,8 +1317,15 @@ function RecapLegend() {
 
 function splitBalance(balance: number): number[] {
   if (balance <= 150) return [balance]
-  if (balance <= 400) return [Math.round(balance * 0.6), Math.round(balance * 0.4)]
-  const a = Math.round(balance * 0.45)
-  const b = Math.round(balance * 0.33)
-  return [a, b, balance - a - b]
+  if (balance <= 400) return [Math.round(balance * 0.6), balance - Math.round(balance * 0.6)]
+  if (balance <= 1200) {
+    const a = Math.round(balance * 0.45)
+    const b = Math.round(balance * 0.33)
+    return [a, b, balance - a - b]
+  }
+  // A larger balance is genuinely several coins, so show four.
+  const a = Math.round(balance * 0.34)
+  const b = Math.round(balance * 0.27)
+  const c = Math.round(balance * 0.22)
+  return [a, b, c, balance - a - b - c]
 }

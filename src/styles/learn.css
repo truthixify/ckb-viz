@@ -80,37 +80,6 @@
   }
 }
 
-/* SEND — a fresh coin struck at the transaction. */
-@keyframes mint-pop {
-  0% {
-    opacity: 0;
-    transform: scale(0.5);
-  }
-  60% {
-    opacity: 1;
-    transform: scale(1.12);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* SEND — the fee peeling off toward the miner. */
-@keyframes fee-peel {
-  0% {
-    opacity: 0;
-    transform: translateY(0);
-  }
-  30% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(22px);
-  }
-}
-
 /* SEND — a wallet absorbing the impact as a coin lands in it. */
 @keyframes piggy-receive {
   0% {

@@ -20,7 +20,7 @@
   /* Type */
   --color-bone: #f2eee6; /* primary type — warm off-white */
   --color-bone-dim: #a8a199; /* secondary type, supporting readings */
-  --color-muted: #6e6760; /* mono labels, meta, timestamps, tertiary */
+  --color-muted: #8a827a; /* mono labels, meta, timestamps, tertiary (AA on base/panel) */
 
   /* Structure */
   --color-hairline: #2a2724; /* dividers & sub-borders inside content */
