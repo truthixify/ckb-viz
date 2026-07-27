@@ -11,6 +11,7 @@ export function GroupedCell({
   side,
   count,
   sumCapacity,
+  unresolved = false,
   id,
   active,
   onActivate,
@@ -20,6 +21,9 @@ export function GroupedCell({
   side: CellSide
   count: number
   sumCapacity: bigint
+  /** True when this side was only sampled (a large transaction), so the combined
+   *  capacity is unknown and the group must not expand into thousands of cards. */
+  unresolved?: boolean
   id: string
   active: boolean
   onActivate: (id: string | null) => void
@@ -27,34 +31,37 @@ export function GroupedCell({
   registerRef: (id: string, el: HTMLElement | null) => void
 }) {
   const isOutput = side === 'output'
+  const interactive = !unresolved
   return (
     <div
       ref={(el) => registerRef(id, el)}
       data-flow-cell
-      role="button"
-      tabIndex={0}
-      aria-label={`${count} more cells, expand`}
+      aria-label={interactive ? `${count} more cells, expand` : `${count} more cells, capacity not resolved`}
       onMouseEnter={() => onActivate(id)}
       onMouseLeave={() => onActivate(null)}
       onFocus={() => onActivate(id)}
       onBlur={() => onActivate(null)}
-      onClick={onExpand}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          onExpand()
-        }
-      }}
+      {...(interactive
+        ? {
+            role: 'button' as const,
+            tabIndex: 0,
+            onClick: onExpand,
+            onKeyDown: (e: React.KeyboardEvent) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onExpand()
+              }
+            },
+          }
+        : {})}
       className={clsx(
         'flex flex-col gap-1.5 border border-dashed bg-panel px-5 py-3.5 transition-colors',
         isOutput ? 'items-end text-right' : 'items-start text-left',
         active ? 'border-border bg-raised' : 'border-border',
       )}
     >
-      <span className="mono text-[13px] uppercase tracking-[0.1em] text-bone-dim">
-        +{count} cells
-      </span>
-      <span className="mono text-[11px] text-muted">Σ {formatCkb(sumCapacity)} CKB</span>
+      <span className="mono text-[13px] uppercase tracking-[0.1em] text-bone-dim">+{count} cells</span>
+      <span className="mono text-[11px] text-muted">{unresolved ? 'capacity not resolved' : `Σ ${formatCkb(sumCapacity)} CKB`}</span>
     </div>
   )
 }

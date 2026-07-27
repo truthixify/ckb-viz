@@ -26,22 +26,28 @@ const CELL_STAGGER = 70
 
 const GROUP_THRESHOLD = 4
 const GROUP_KEEP = 3
+/** Even when expanded, never render more than this many cards on a side, so a
+ *  huge transaction (thousands of cells) can't lock up the DOM. The overflow
+ *  stays collapsed into the grouped anchor. */
+const RENDER_CAP = 100
 
 interface Row {
   id: string
   cell?: Cell
   index?: number
-  grouped?: { count: number; sum: bigint }
+  grouped?: { count: number; sum: bigint; unresolved: boolean }
 }
 
-function toRows(cells: Cell[], side: CellSide, expanded: boolean): Row[] {
-  if (expanded || cells.length <= GROUP_THRESHOLD) {
+function toRows(cells: Cell[], side: CellSide, expanded: boolean, resolved: boolean): Row[] {
+  if (cells.length <= GROUP_THRESHOLD) {
     return cells.map((cell, index) => ({ id: cellId(side, index), cell, index }))
   }
-  const shown = cells.slice(0, GROUP_KEEP).map((cell, index) => ({ id: cellId(side, index), cell, index }))
-  const rest = cells.slice(GROUP_KEEP)
+  const keep = expanded ? Math.min(RENDER_CAP, cells.length) : GROUP_KEEP
+  const shown = cells.slice(0, keep).map((cell, index) => ({ id: cellId(side, index), cell, index }))
+  if (keep >= cells.length) return shown
+  const rest = cells.slice(keep)
   const sum = rest.reduce((a, c) => a + c.capacity, 0n)
-  return [...shown, { id: cellId(side, 'group'), grouped: { count: rest.length, sum } }]
+  return [...shown, { id: cellId(side, 'group'), grouped: { count: rest.length, sum, unresolved: !resolved } }]
 }
 
 export function FlowCanvas({
@@ -78,8 +84,12 @@ export function FlowCanvas({
   const [stage, setStage] = useState(reduced ? 2 : 0)
 
   const inputCells = transaction.inputs.map((i) => i.cell ?? unresolvedCell())
-  const inputRows = toRows(inputCells, 'input', inputsExpanded)
-  const outputRows = toRows(transaction.outputs, 'output', outputsExpanded)
+  // A large transaction only has a sample of its inputs resolved (see NodeSource),
+  // so their grouped total is unknown and the group must not be expanded into
+  // thousands of empty cards.
+  const inputsResolved = transaction.inputs.length > 0 && transaction.inputs.every((i) => i.cell)
+  const inputRows = toRows(inputCells, 'input', inputsExpanded && inputsResolved, inputsResolved)
+  const outputRows = toRows(transaction.outputs, 'output', outputsExpanded, true)
   const deps = transaction.cellDeps
 
   const stateRef = useRef({ inputRows, outputRows, depCount: deps.length, depsOpen, narrow })
@@ -300,6 +310,7 @@ export function FlowCanvas({
                     side="input"
                     count={row.grouped.count}
                     sumCapacity={row.grouped.sum}
+                    unresolved={row.grouped.unresolved}
                     id={row.id}
                     active={activeId === row.id}
                     onActivate={setActiveId}
@@ -354,6 +365,7 @@ export function FlowCanvas({
                     side="output"
                     count={row.grouped.count}
                     sumCapacity={row.grouped.sum}
+                    unresolved={row.grouped.unresolved}
                     id={row.id}
                     active={activeId === row.id}
                     onActivate={setActiveId}

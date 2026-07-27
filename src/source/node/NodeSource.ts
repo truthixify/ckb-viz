@@ -30,6 +30,14 @@ import {
 
 /** Bound the input-resolution fan-out so a large tx can't hammer the endpoint. */
 const RESOLVE_CONCURRENCY = 8
+/** Resolve every input's previous output up to this many. Beyond it (a large
+ *  consolidation can have thousands of inputs), resolving each one is thousands
+ *  of RPC calls that never finish, so we resolve only a small sample for the
+ *  flow and leave the rest unresolved. The fee is then reported as unknown. */
+const FULL_RESOLVE_MAX = 200
+/** For a transaction past FULL_RESOLVE_MAX, resolve just enough inputs to show
+ *  the first few cards; the rest render as an unresolved group. */
+const SAMPLE_RESOLVE = 6
 /** How far back to look for the consuming tx among a lock's spending txs. */
 const FORWARD_SCAN_LIMIT = 40
 /** How many blocks down from the tip to scan for the latest transaction. */
@@ -320,15 +328,18 @@ export class NodeSource implements TransactionSource {
 
   private async resolveInputs(tx: CccTransaction): Promise<(Cell | undefined)[]> {
     const results: (Cell | undefined)[] = new Array(tx.inputs.length)
+    // A large transaction (thousands of inputs) can't have each input resolved
+    // without an RPC storm that never returns, so resolve only a sample.
+    const limit = tx.inputs.length > FULL_RESOLVE_MAX ? SAMPLE_RESOLVE : tx.inputs.length
     let cursor = 0
     const worker = async () => {
-      while (cursor < tx.inputs.length) {
+      while (cursor < limit) {
         const i = cursor++
         const input = tx.inputs[i]
         if (input) results[i] = await this.resolveOne(input.previousOutput)
       }
     }
-    const workers = Array.from({ length: Math.min(RESOLVE_CONCURRENCY, tx.inputs.length) }, worker)
+    const workers = Array.from({ length: Math.min(RESOLVE_CONCURRENCY, limit) }, worker)
     await Promise.all(workers)
     return results
   }

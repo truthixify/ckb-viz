@@ -45,6 +45,11 @@ export function SummaryBanner({
         <h1 className="max-w-3xl text-[32px] font-medium leading-tight tracking-tight text-bone">
           {summary.headline}
         </h1>
+        {capacity.inputsTotal === undefined && transaction.inputs.length > 0 && (
+          <p className="max-w-3xl text-[12px] leading-relaxed text-muted">
+            Only some of this transaction's {formatInt(transaction.inputs.length)} inputs could be resolved, so the input total and the fee are not shown.
+          </p>
+        )}
       </div>
 
       <dl className="flex flex-wrap gap-x-8 gap-y-5 min-[560px]:gap-x-12">

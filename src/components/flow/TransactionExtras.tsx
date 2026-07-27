@@ -18,6 +18,9 @@ export function TransactionExtras({
   const [open, setOpen] = useState(false)
   const { witnesses, headerDeps } = transaction
   if (witnesses.length === 0 && headerDeps.length === 0) return null
+  // A large transaction can carry thousands of witnesses; cap the rendered list.
+  const WITNESS_CAP = 50
+  const shownWitnesses = witnesses.slice(0, WITNESS_CAP)
 
   return (
     <div className="border-t border-hairline pt-5">
@@ -37,7 +40,7 @@ export function TransactionExtras({
             <div className="flex flex-col gap-2">
               <span className="meta-label-sm">Witnesses</span>
               <div className="flex flex-col gap-1.5">
-                {witnesses.map((w, i) => {
+                {shownWitnesses.map((w, i) => {
                   const view = decodeWitness(w)
                   const parts = view.isWitnessArgs
                     ? [
@@ -67,6 +70,9 @@ export function TransactionExtras({
                     </div>
                   )
                 })}
+                {witnesses.length > WITNESS_CAP && (
+                  <span className="mono text-[10px] text-muted">+{witnesses.length - WITNESS_CAP} more witnesses</span>
+                )}
               </div>
             </div>
           )}
