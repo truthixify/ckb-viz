@@ -82,6 +82,7 @@ export const CODE_HASHES = {
   },
   btcTimeLock: {
     mainnet: { codeHash: '0x70d64497a075bd651e98ac030455ea200637ee325a12ad08aff03f1a117e5a62', hashType: 'type' },
+    testnet: { codeHash: '0x00cdf8fab0f8ac638758ebf5ea5e4052b1d71e8a77b9f43139718621f6849326', hashType: 'type' },
   },
   nostrLock: {
     mainnet: { codeHash: '0x641a89ad2f77721b803cd50d01351c1f308444072d5fa20088567196c0574c68', hashType: 'type' },

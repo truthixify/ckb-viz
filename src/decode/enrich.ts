@@ -1,5 +1,6 @@
 import type { Cell, CapacityBreakdown, CellDep, Input, Transaction } from '@/domain/types'
 import { ScriptRegistry } from '@/registry/registry'
+import { decodeLockBinding } from './binding'
 import { decodeCellData } from './data'
 import { decodeTransaction, type DecodeResult } from './decoder'
 
@@ -18,9 +19,11 @@ export interface EnrichedTransaction {
 
 export function enrichTransaction(tx: Transaction, registry: ScriptRegistry): EnrichedTransaction {
   const enrichCell = (cell: Cell): Cell => {
+    const lock = registry.annotate(cell.lock)
+    const binding = decodeLockBinding(lock, registry)
     const enriched: Cell = {
       ...cell,
-      lock: registry.annotate(cell.lock),
+      lock: binding ? { ...lock, binding } : lock,
       decoded: decodeCellData(cell, registry.network, registry),
     }
     if (cell.type) enriched.type = registry.annotate(cell.type)

@@ -49,6 +49,26 @@ export interface Script {
   address?: string
   /** Registry match, absent when the script is unrecognized. */
   known?: KnownScript
+  /** Decoded cross-chain binding for an RGB++ / BTC-time lock, when applicable. */
+  binding?: LockBinding
+}
+
+/**
+ * The Bitcoin binding carried by an RGB++ lock or a BTC time lock (SPEC §8.7).
+ * RGB++ ties a CKB cell to a specific Bitcoin UTXO; a BTC time lock holds the
+ * cell until a Bitcoin transaction has enough confirmations, then releases it
+ * to a CKB owner lock. Decoded best-effort from the lock args, always labeled.
+ */
+export interface LockBinding {
+  kind: 'rgbpp' | 'btc-time'
+  /** The bound Bitcoin transaction id, big-endian as a block explorer shows it. */
+  btcTxid: string
+  /** The bound Bitcoin output index (vout). */
+  btcOutIndex: number
+  /** BTC time lock: Bitcoin confirmations required before the cell releases. */
+  after?: number
+  /** BTC time lock: the CKB lock that takes ownership once it releases. */
+  ownerLock?: Script
 }
 
 export type DecodedDataKind =
