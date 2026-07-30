@@ -11,7 +11,7 @@ import { LearnView } from '@/components/learn/LearnView'
 import { CopyToast } from '@/components/common/CopyToast'
 import { SrSummary } from '@/components/common/SrSummary'
 import { DetailPanel } from '@/components/detail/DetailPanel'
-import { FlowCanvas } from '@/components/flow/FlowCanvas'
+import { TransactionFlow } from '@/components/flow/TransactionFlow'
 import { RawJsonView } from '@/components/flow/RawJsonView'
 import { TransactionExtras } from '@/components/flow/TransactionExtras'
 import { Breadcrumb } from '@/components/lineage/Breadcrumb'
@@ -305,7 +305,7 @@ export function App() {
                   setToast('Link copied')
                 }}
               />
-              <FlowCanvas
+              <TransactionFlow
                 key={`flow-${currentHash}`}
                 transaction={enriched.transaction}
                 capacity={enriched.capacity}
