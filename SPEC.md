@@ -137,6 +137,7 @@ interface Script {
   args: string             // 0x + hex; per-instance argument ("0x" when empty)
   hash: string             // 0x + 64 hex; ckbhash(molecule(script)) — the script hash used for identity/addressing
   known?: KnownScript       // registry match by (codeHash, hashType), if recognized (see 5.7)
+  binding?: LockBinding     // decoded Bitcoin binding for an RGB++ / BTC-time lock (see 8.10)
 }
 
 type HashType = "data" | "type" | "data1" | "data2"
@@ -221,12 +222,12 @@ type DecodedData =
   | { kind: "empty" }                                    // data === "0x"
   | { kind: "udt"; amount: bigint; standard: "sudt" | "xudt" } // first 16 bytes, LE u128
   | { kind: "dao"; phase: "deposit" | "withdraw"; depositBlock?: bigint } // 8-byte LE u64
-  | { kind: "spore"; contentType: string; content: string; clusterId?: string } // SporeData molecule
+  | { kind: "spore"; contentType: string; content: string; clusterId?: string; dob?: { version: string; dna: string } } // SporeData molecule
   | { kind: "cluster"; name: string; description: string } // ClusterData molecule
   | { kind: "raw"; hex: string }                         // unrecognized; show bytes + length only
 ```
 
-Decode rules, all grounded in the type script's known identity (never on data length alone): UDT amount is `data[0..16]` as little-endian `u128` (identical for sUDT and plain xUDT). A Nervos DAO cell's 8-byte data is `0` → deposit, else the little-endian `u64` is the deposit block height → withdrawing. Spore/Cluster data are molecule tables. Everything else is `raw`. This is inference and must be rendered as such per §8.
+Decode rules, all grounded in the type script's known identity (never on data length alone): UDT amount is `data[0..16]` as little-endian `u128` (identical for sUDT and plain xUDT). A Nervos DAO cell's 8-byte data is `0` → deposit, else the little-endian `u64` is the deposit block height → withdrawing. Spore/Cluster data are molecule tables; a Spore whose `content_type` is `dob/0` or `dob/1` carries DNA rather than a renderable asset, so it is labeled a generative object and its `dob.dna` (the raw content bytes as hex) is surfaced instead of an image (see 8.5). Everything else is `raw`. This is inference and must be rendered as such per §8.
 
 ### 5.7 DecodedWitness and KnownScript
 
@@ -885,6 +886,34 @@ function computeFee(resolvedInputs: (CellOutput | null)[], outputs: CellOutput[]
 
 Never display a fee derived from partially-resolved inputs — a single missing input silently understates the input sum and produces a wrong, confidently-rendered number. When the wrapper `get_transaction` response carries a `fee` field (pool metadata, present while pending/proposed), prefer it and label it as node-reported; once committed that field is typically `null`, so the computed value above becomes the source of truth. A **cellbase** transaction has no real inputs and mints capacity, so the fee formula does not apply — detect it (first input's `previous_output.tx_hash` is all-zero) and label it "cellbase (block reward)" instead of reporting a fee.
 
+### 8.10 Field decoder — RGB++ / BTC-time lock binding
+
+An RGB++ lock ties a CKB cell to a specific Bitcoin UTXO; a BTC-time lock holds a cell until a Bitcoin transaction has enough confirmations, then releases it to a CKB owner lock. Both encode a Bitcoin reference in their **lock args**, decoded best-effort into `LockBinding` and shown in the cell detail. As with every decode, args that do not match the exact layout produce nothing extra — the binding is never guessed (§7.4).
+
+```typescript
+interface LockBinding {
+  kind: "rgbpp" | "btc-time"
+  btcTxid: string          // 0x + 64 hex, big-endian (as a Bitcoin explorer shows it)
+  btcOutIndex: number      // the bound Bitcoin vout (rgbpp); 0 for btc-time (bound to the tx)
+  after?: number           // btc-time only: required Bitcoin confirmations before release
+  ownerLock?: Script       // btc-time only: the CKB lock the cell releases to (re-annotated)
+}
+```
+
+- **RGBPPLock args** are a fixed 36-byte molecule `struct { out_index: Uint32, btc_txid: Byte32 }` — **no** table header. Read `out_index` as a little-endian `u32` (the vout), then the 32-byte txid. The txid is stored in Bitcoin **internal (little-endian)** order, so it is **reversed** to big-endian for display and for a Bitcoin-explorer link (CONFIRMED against `utxostack/rgbpp-sdk`). Require exactly 36 bytes; otherwise decode to nothing.
+- **BTCTimeLock args** are a molecule `table { lock_script: Script, after: Uint32, btc_txid: Byte32 }`. Decode `lock_script` as a nested `Script` and re-annotate it through the registry (so it reads "releases to Secp256k1 / Omnilock / …"), read `after` as a little-endian `u32`, and reverse `btc_txid` the same way.
+
+The Bitcoin txid is rendered as copyable text plus a link to a Bitcoin explorer (`https://mempool.space/tx/<txid>`); the strict CSP forbids fetching or embedding anything from that host, so it is a link only, never a fetch.
+
+Reference lock code hashes (**verify against deployment**):
+
+| script | network | `code_hash` |
+|---|---|---|
+| RGB++ lock | mainnet | `0xbc6c568a1a0d0a09f6844dc9d74ddb4343c32143ff25f727c59edf4fb72d6936` |
+| RGB++ lock | testnet | `0x61ca7a4796a4eb19ca4f0d065cb9b10ddcf002f10f7cbb810c706cb6bb5c3248` |
+| BTC-time lock | mainnet | `0x70d64497a075bd651e98ac030455ea200637ee325a12ad08aff03f1a117e5a62` |
+| BTC-time lock | testnet | `0x00cdf8fab0f8ac638758ebf5ea5e4052b1d71e8a77b9f43139718621f6849326` |
+
 ## 9. Surfaces and UX
 
 One screen. Everything lives in a single main view — an input bar, a summary banner, and the flow — with the detail panel and the lineage view layered on top of it rather than routed to separate pages. This section specifies the behavior and layout of each surface in enough detail to build from. Visual tokens (color, type, spacing, motion timing) are §10's job; here we say what each surface *does*, what it shows, and how it responds.
@@ -974,6 +1003,7 @@ The trace feature, and the reason the tool turns a single transaction into a nav
 - **Backward, from an input.** Every input names its source by `previous_output = { tx_hash, index }`. Following an input backward loads `get_transaction(previous_output.tx_hash)` and renders *that* transaction in the flow, with the originating output highlighted. Backward lineage is always available from node data alone — it is an O(1) hop — so it is the primary, always-on direction.
 - **Forward, from an output.** A node cannot look forward: nothing in the chain RPC maps an OutPoint to its consuming transaction. Forward lineage therefore requires the indexer (query `get_transactions` by the cell's lock/type script, keep `io_type == "input"` rows, then match `inputs[io_index].previous_output` to this OutPoint) or the explorer API (`display_outputs[index].consumed_tx_hash` in one call). When neither is configured, or the output is still live (unspent), the forward affordance is **disabled with a plain reason**, never a dead link (§9.7).
 - **Breadcrumb path.** A breadcrumb records the walk — the chain of transactions the user stepped through — so they can see where they are, step back to any prior transaction, and understand the path as a history rather than a set of disconnected loads. Each crumb is the truncated tx hash with its decoded headline on hover. Stepping back is a crossfade to the same flow rendering (§10 motion).
+- **Lineage graph.** Where the breadcrumb is the *trail walked*, the lineage graph is the *neighbourhood around where you are*: the focus transaction in the centre, the parent transactions that created its inputs on the left, and the transactions that spent its outputs on the right, drawn as a small SVG graph in the furnace look (no graph library). Parents come straight from the inputs (an input always names its creating transaction — no fetch, available even for a sampled large transaction). Children need the forward-lineage indexer, so they load lazily only when the graph is opened (it is collapsed by default and costs nothing until then) and are bounded hard (a capped output scan, a capped node count). Clicking any node re-centres the graph there and pushes onto the breadcrumb, so the cell-lineage DAG is walked hop by hop. When forward lineage is unavailable the children side degrades to a plain reason, exactly as the one-hop trace does.
 
 ### 9.6 Interactions
 
@@ -1022,6 +1052,20 @@ The thresholds are tuning values, not law — pick the exact numbers against the
 **What the grouped view looks like.** A grouped card occupies one card slot and reads as a summary of its run: the count, the shared decoded script name and category tint, and the summed capacity of the run (so the capacity totals still reconcile — a group contributes its sum to the column total exactly as its members would). Its connector to the spine is a single **bundled** connector representing the whole run, styled a touch heavier to signal it stands for many. Expanding a group replaces the summary card with its member cards inline and fans their individual connectors; collapsing bundles them back. Grouping only ever merges cells that are genuinely identical in decoded script identity — it never merges cells that differ in lock, type, or known-ness, because that would hide exactly the distinctions the tool exists to show. Data-carrying cells (has-data) are excluded from grouping and always render individually, since their data is the point.
 
 Decoding and molecule parsing for grouped and off-screen cells is **lazy** — a collapsed group decodes only its shared script identity and summed capacity up front, deferring per-cell data decode until a member is expanded or scrolled into view — and every per-cell decode is memoized so scrolling a virtualized column never re-parses a cell twice.
+
+### 9.9 Owner net-change view
+
+A second reading of the same transaction, toggled beside the cell flow ("Cell flow / Owner net"): who gained and who lost, rather than a cell-by-cell diagram. Cells are grouped by their **lock** (one party = one lock, keyed on the lock's `(code_hash, hash_type, args)`), and each party shows its **net CKB** (`Σ its outputs − Σ its inputs`, signed) and its **net token** per token id, with the transaction fee split out to miners. A party that appears on both sides is the change/consolidation case and is shown as one row tagged `change`, so a 263-output payout reads as one payer and N recipients instead of hundreds of cards. Parties are ordered by the size of their CKB movement; each expands to the individual cells it spent and received, and a cell opens its detail.
+
+Owner-net is exact only when **every input is resolved** (the same guard as the fee, §8.9). On a large, sampled transaction the payer side is unknown, so the view shows what each address **received** (the fully-known output side) and says plainly that the net and payers are not yet known — resolving all inputs (§9.10) fills it in. The whole reading is derived, so it is marked inferred; sign is shown with the flow tints as markers only (green `+`, alarm-red `−`), never as new accent colour.
+
+### 9.10 On-demand full input resolution
+
+A large transaction is input-sampled by default (§9.8, §6.3), so its input total, fee, and owner-net stay unknown. The summary banner offers a **Resolve all N inputs** control that fetches every input's creating transaction on demand. It reports progress on a thin ember meter (`resolved / total`) and is **cancellable** via an `AbortSignal`; fetches retry with backoff so an endpoint rate-limiting the fan-out does not spuriously leave inputs unresolved. On completion the transaction re-enriches from one pure pass, filling in the input total, fee, DAO compensation, and the full owner-net across every surface. A **partial** resolve (some inputs still unresolved) is treated as a retryable failure rather than a frozen, misleading success — the sampled view stands and the fee stays `—`, honoring the §8.9 rule never to show a fee from partially-resolved inputs. The result caches (committed txs are immutable), so re-visiting is instant.
+
+### 9.11 Export the flow as an image
+
+The flow can be exported as a self-contained SVG or PNG for sharing. The SVG is built from the normalized model, not the live DOM, so it is deterministic and testable: three columns of cell cards (a crowded side folds into a "+N more" summary, matching §9.8) feeding a central spine with the fee and in/out counts, ember connectors, and a caption carrying the tx hash, network, and fee. Every colour is an inline literal and the font is a system-mono stack, so the file has **zero external references** and renders under the strict CSP (§13) and inside a rasterized PNG. PNG is produced by drawing the same SVG onto a canvas via a `data:` URI (which the CSP allows and which, unlike a blob URL, does not taint the canvas), offered at 1× and 2×. All on-chain text is XML-escaped, never injected as markup — the same untrusted-data rule as the DOM surfaces (§13).
 
 ## 10. Design system
 
@@ -1659,6 +1703,15 @@ The draft's four open questions, decided.
 **Decision.** Render **in full up to 50 cells per side (100 total)**. Above that, **group and collapse** each over-long column into summarized rows (grouped by decoded script/category, e.g. "42 sUDT outputs · 12,300 CKB") with an expander per group. When a single expanded group exceeds **~200 rows**, **virtualize** it with `@tanstack/react-virtual`, and stub connectors for off-screen rows at the column edge rather than drawing them to nowhere. Grouping is the first line of defense because virtualization fights the connector-to-off-screen-row problem; virtualization is the fallback only inside a large expanded group.
 
 **Rationale.** The connector flow is the signature, and it only reads when endpoints are on-screen — so the design must reduce the row count (grouping) before it resorts to hiding rows (virtualization). Fifty per side is comfortably above ordinary transactions while staying well within a smooth DOM and the frame budget of §13.1; grouping by decoded category is meaningful (it tells the reader "this is a batch of token outputs") rather than an arbitrary page break; and reserving virtualization for very large expanded groups keeps the common case pure DOM with real connectors. The grouped view is itself a decode: it says what the bulk of the transaction is doing without forcing the reader to scroll a hundred near-identical cells.
+
+### 15.5 Deferred: DOB rendering and DAO maturity projection
+
+**Decision.** Two decode enrichments are deliberately **partial** for now, both because completing them needs work the read-only, self-contained stance does not currently take on:
+
+- **DOB (Spore DOB/0, DOB/1) artwork** is **not rendered**. A DOB cell holds compact DNA, and turning DNA into an image requires running the DOB decoder — a RISC-V program executed against the bound cluster's pattern (the reference implementation is a server embedding ckb-vm). That is either an external service call (which the strict CSP and the self-contained stance forbid) or a bundled ckb-vm-in-wasm plus the on-chain decoder and cluster fetched over RPC. So a DOB is detected, labeled a generative object, and its DNA surfaced (§8.5) — honest and best-effort — with full trait/image rendering deferred until a wasm decoder path is worth its weight.
+- **Nervos DAO withdrawal maturity** is shown from the withdrawing input's `since` (the unlock epoch the spender chose), not projected from the deposit epoch. The full 180-epoch-cycle projection (`matures_at = deposit_epoch + 180·⌈…⌉`, RFC0023) needs the deposit block's **epoch**, an extra `get_header_by_number` per withdrawing input beyond what the flow already fetches; the compensation figure (§8.4, via `calcDaoProfit`) already uses those headers, so the projection is a small future addition rather than a redesign.
+
+Both are tracked here so the spec stays the source of truth on what is and is not attempted.
 
 ## 16. Appendices
 

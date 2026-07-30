@@ -54,7 +54,7 @@ export interface Script {
 }
 
 /**
- * The Bitcoin binding carried by an RGB++ lock or a BTC time lock (SPEC §8.7).
+ * The Bitcoin binding carried by an RGB++ lock or a BTC time lock (SPEC §8.10).
  * RGB++ ties a CKB cell to a specific Bitcoin UTXO; a BTC time lock holds the
  * cell until a Bitcoin transaction has enough confirmations, then releases it
  * to a CKB owner lock. Decoded best-effort from the lock args, always labeled.

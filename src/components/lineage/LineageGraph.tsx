@@ -6,7 +6,7 @@ import { useLineageGraph, type LineageNode } from '@/app/useLineageGraph'
 import { bezierPath } from '../flow/connectors'
 
 /**
- * A small, bounded lineage graph (SPEC §9.5b): the focus transaction in the
+ * A small, bounded lineage graph (SPEC §9.5): the focus transaction in the
  * centre, its parent transactions to the left, the transactions that spent its
  * outputs to the right. Rendered as plain SVG, so it inherits the furnace look
  * with no graph library. Collapsed by default, so it costs nothing until

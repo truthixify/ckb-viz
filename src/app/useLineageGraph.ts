@@ -4,7 +4,7 @@ import type { Transaction } from '@/domain/types'
 import type { TransactionSource } from '@/source/TransactionSource'
 
 /**
- * The neighbourhood of a transaction in the cell-lineage DAG (SPEC §9.5b): the
+ * The neighbourhood of a transaction in the cell-lineage DAG (SPEC §9.5): the
  * parent transactions that created its inputs, and the child transactions that
  * spent its outputs. Parents are read straight from the focus transaction (no
  * fetch — an input always names its creating transaction). Children need the

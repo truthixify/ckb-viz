@@ -5,7 +5,7 @@ import { readTableFields } from './molecule'
 
 /**
  * Decode the Bitcoin binding an RGB++ lock or a BTC-time lock carries in its
- * args (SPEC §8.7). Verified against the RGB++ molecule schemas and the
+ * args (SPEC §8.10). Verified against the RGB++ molecule schemas and the
  * rgbpp-sdk pack/unpack code: the 32-byte txid is stored in Bitcoin internal
  * (little-endian) order, so it is reversed here to the big-endian form a
  * Bitcoin explorer shows. Best-effort: args that do not match the exact layout
