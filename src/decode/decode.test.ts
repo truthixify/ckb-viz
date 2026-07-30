@@ -92,6 +92,8 @@ describe('field decoders', () => {
     const dob = decodeSporeData(sporeData('dob/0', new Uint8Array([1, 2, 3])))
     expect(dob?.contentType).toBe('dob/0')
     expect(dob?.imageDataUri).toBeUndefined()
+    // A DOB is labeled and its DNA surfaced, not mistaken for renderable content.
+    expect(dob?.dob).toEqual({ version: '0', dna: '0x010203' })
   })
 
   it('resolves an off-chain Spore content reference to a gateway link', () => {

@@ -103,6 +103,9 @@ export interface DecodedData {
   imageDataUri?: string
   /** An https link when Spore content references off-chain data (IPFS / URL). */
   externalUrl?: string
+  /** A DOB (on-chain generative object): DNA hex, with the artwork not rendered
+   *  because producing it needs the DOB decoder this viewer does not run. */
+  dob?: { version: string; dna: string }
 }
 
 export interface Cell {

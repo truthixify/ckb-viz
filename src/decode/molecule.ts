@@ -1,4 +1,4 @@
-import { hexToBytes, readUintLE } from '@/domain/hex'
+import { bytesToHex, hexToBytes, readUintLE } from '@/domain/hex'
 
 /**
  * Minimal, defensive molecule table reader for Spore/Cluster data (SPEC §8.5).
@@ -48,6 +48,16 @@ export interface SporeData {
   imageDataUri?: string
   /** An https link when the content references off-chain data (IPFS / URL). */
   externalUrl?: string
+  /** A DOB (on-chain generative object): its content is compact DNA, not an
+   *  image. Rendering the artwork needs the DOB decoder (a RISC-V program),
+   *  which this read-only viewer does not run, so only the DNA is surfaced. */
+  dob?: { version: string; dna: string }
+}
+
+/** DOB content types are "dob/0" or "dob/1" (optionally with parameters). */
+function dobVersion(contentType: string): string | null {
+  const m = contentType.trim().toLowerCase().match(/^dob\/(\d+)/)
+  return m ? m[1]! : null
 }
 
 const MAX_INLINE_IMAGE_BYTES = 2_000_000
@@ -82,6 +92,16 @@ export function decodeSporeData(dataHex: string): SporeData | null {
     const contentType = utf8(bytesFieldPayload(fields[0]!))
     const content = bytesFieldPayload(fields[1]!)
     const result: SporeData = { contentType, contentByteLength: content.length }
+
+    // A DOB carries DNA, not an image: label it as such and surface the DNA,
+    // rather than mistaking the compact bytes for renderable content.
+    const dob = dobVersion(contentType)
+    if (dob !== null) {
+      result.dob = { version: dob, dna: bytesToHex(content) }
+      const clusterField = fields[2]
+      if (clusterField && clusterField.length > 0) result.clusterId = bytesToHex(clusterField)
+      return result
+    }
 
     const mime = contentType.split(';')[0]?.trim().toLowerCase()
     // Content may be a URI pointing off-chain (a link) or raw image bytes

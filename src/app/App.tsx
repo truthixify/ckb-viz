@@ -325,6 +325,7 @@ export function App() {
           cell={selectedCell}
           side={sel.side}
           index={sel.side === 'output' ? sel.index : undefined}
+          since={sel.side === 'input' ? enriched?.transaction.inputs[sel.index]?.since : undefined}
           onClose={() => setSelectedId(null)}
           onCopy={onCopy}
           canTraceForward={source.capabilities.forwardLineage}

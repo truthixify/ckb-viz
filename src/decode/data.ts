@@ -63,7 +63,7 @@ export function decodeCellData(cell: Cell, network: Network, registry: ScriptReg
       if (!spore) return rawData(cell.data)
       const decoded: DecodedData = {
         kind: 'spore',
-        label: spore.contentType || 'Spore',
+        label: spore.dob ? `Spore DOB/${spore.dob.version} · generative object` : spore.contentType || 'Spore',
         inferred: true,
         contentType: spore.contentType,
         contentByteLength: spore.contentByteLength,
@@ -71,6 +71,7 @@ export function decodeCellData(cell: Cell, network: Network, registry: ScriptReg
       if (spore.clusterId) decoded.clusterId = spore.clusterId
       if (spore.imageDataUri) decoded.imageDataUri = spore.imageDataUri
       if (spore.externalUrl) decoded.externalUrl = spore.externalUrl
+      if (spore.dob) decoded.dob = spore.dob
       return decoded
     }
 

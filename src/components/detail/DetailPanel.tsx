@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import type { Cell } from '@/domain/types'
+import type { Cell, DecodedSince } from '@/domain/types'
 import { ckbParts, formatCkb, formatOutPoint } from '@/domain/units'
 import type { CellSide } from '../flow/types'
 import { ScriptDetail } from './ScriptDetail'
@@ -14,6 +14,7 @@ export function DetailPanel({
   cell,
   side,
   index,
+  since,
   onClose,
   onCopy,
   canTraceForward,
@@ -23,6 +24,8 @@ export function DetailPanel({
   cell: Cell
   side: CellSide
   index?: number | undefined
+  /** The input's decoded `since` timelock, for input cells only. */
+  since?: DecodedSince | undefined
   onClose: () => void
   onCopy: (text: string) => void
   canTraceForward: boolean
@@ -106,6 +109,21 @@ export function DetailPanel({
           </button>
         )}
 
+        {since?.isSet && (
+          <div className="flex flex-col gap-1.5 border border-hairline bg-panel px-4 py-3">
+            <span className="meta-label-sm">Timelock (since)</span>
+            <span className="mono text-[12px] text-bone-dim">{since.label}</span>
+            {decoded?.kind === 'dao-withdraw' && since.metric === 'epoch' && (
+              <span className="text-[11px] leading-relaxed text-muted">
+                This DAO withdrawal could be claimed from epoch{' '}
+                {since.relative ? '(relative) ' : ''}
+                {since.label.replace(/^(absolute|relative) epoch /, '')}. Nervos DAO deposits mature in
+                cycles of 180 epochs (about 30 days each).
+              </span>
+            )}
+          </div>
+        )}
+
         <ScriptDetail script={cell.lock} category="lock" onCopy={onCopy} />
         {cell.type && <ScriptDetail script={cell.type} category="type" onCopy={onCopy} />}
 
@@ -122,6 +140,23 @@ export function DetailPanel({
               alt={decoded.contentType ?? 'Spore content'}
               className="well max-h-72 w-full object-contain p-2"
             />
+          )}
+          {decoded?.dob && (
+            <div className="flex flex-col gap-2 border border-hairline bg-panel px-3 py-3">
+              <span className="text-[12px] leading-relaxed text-bone-dim">
+                This is a DOB, an on-chain generative object. Its traits and image are produced by the
+                DOB decoder, which this read-only viewer does not run, so only the DNA is shown.
+              </span>
+              <span className="meta-label-sm">DNA</span>
+              <button
+                type="button"
+                onClick={() => onCopy(decoded.dob!.dna)}
+                title="Copy DNA"
+                className="well copyable mono max-h-32 overflow-y-auto break-all px-3 py-2 text-left text-[11px] text-bone-dim"
+              >
+                {decoded.dob.dna}
+              </button>
+            </div>
           )}
           {decoded?.externalUrl && !decoded.imageDataUri && (
             <a
