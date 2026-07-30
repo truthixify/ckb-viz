@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { enrichTransaction, type EnrichedTransaction } from '@/decode/enrich'
 import type { Cell, Network } from '@/domain/types'
 import { addressNetwork, looksLikeAddress } from '@/domain/address'
-import { isVizError } from '@/domain/errors'
+import { isVizError, VizError } from '@/domain/errors'
 import { isValidTxHash } from '@/domain/units'
 import { ScriptRegistry } from '@/registry/registry'
 import { AddressView } from '@/components/address/AddressView'
@@ -82,7 +83,62 @@ export function App() {
         ? path[path.length - 1]!
         : (latestQuery.data ?? null)
   const txQuery = useTransaction(source, registry, currentHash)
-  const enriched = txQuery.data
+
+  // On-demand full input resolution for a large, sampled transaction (SPEC
+  // §9.10). react-query gives us caching (committed txs are immutable) and an
+  // AbortSignal for cancel; progress is reported into local state for the meter.
+  const queryClient = useQueryClient()
+  const [resolveRequested, setResolveRequested] = useState(false)
+  const [resolveProgress, setResolveProgress] = useState<{ done: number; total: number } | null>(null)
+  const fullQuery = useQuery<EnrichedTransaction, Error>({
+    queryKey: ['tx-full', network, currentHash],
+    enabled: resolveRequested && currentHash !== null,
+    staleTime: 10 * 60_000,
+    retry: 0,
+    queryFn: async ({ signal }) => {
+      const tx = await source.getTransaction(currentHash!, {
+        resolveAllInputs: true,
+        signal,
+        onProgress: (done, total) => setResolveProgress({ done, total }),
+      })
+      // Only a fully-resolved transaction yields a correct fee; a partial resolve
+      // (an endpoint rate-limiting the fan-out) must not freeze as a wrong-looking
+      // success. Treat it as a retryable failure so the sampled view stands.
+      if (tx.inputs.some((i) => !i.cell)) {
+        throw new VizError('network', 'Some inputs could not be resolved from this endpoint')
+      }
+      return enrichTransaction(tx, registry)
+    },
+  })
+  const enriched = fullQuery.data ?? txQuery.data
+
+  // A new transaction starts from the sampled view again.
+  useEffect(() => {
+    setResolveRequested(false)
+    setResolveProgress(null)
+  }, [currentHash, network])
+
+  useEffect(() => {
+    if (fullQuery.isSuccess) setResolveProgress(null)
+    if (fullQuery.isError) {
+      setResolveRequested(false)
+      setResolveProgress(null)
+      setToast('Could not resolve all inputs')
+    }
+  }, [fullQuery.isSuccess, fullQuery.isError])
+
+  const resolveAllInputs = useCallback(() => {
+    setResolveProgress({ done: 0, total: enriched?.transaction.inputs.length ?? 0 })
+    setResolveRequested(true)
+  }, [enriched])
+
+  const cancelResolve = useCallback(() => {
+    void queryClient.cancelQueries({ queryKey: ['tx-full', network, currentHash] })
+    setResolveRequested(false)
+    setResolveProgress(null)
+  }, [queryClient, network, currentHash])
+
+  const resolving = fullQuery.isFetching ? (resolveProgress ?? { done: 0, total: 0 }) : null
 
   const addressQuery = useQuery({
     queryKey: ['address', network, address],
@@ -300,6 +356,9 @@ export function App() {
                 transaction={enriched.transaction}
                 capacity={enriched.capacity}
                 summary={enriched.summary}
+                resolving={resolving}
+                onResolveAll={resolveAllInputs}
+                onCancelResolve={cancelResolve}
                 onCopyLink={() => {
                   void navigator.clipboard?.writeText(window.location.href)
                   setToast('Link copied')

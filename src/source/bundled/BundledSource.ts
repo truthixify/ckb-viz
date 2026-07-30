@@ -2,7 +2,7 @@ import type { AddressView } from '@/domain/address'
 import type { SimulationResult } from '@/domain/simulation'
 import type { Network, OutPoint, Transaction } from '@/domain/types'
 import { VizError } from '@/domain/errors'
-import type { SourceCapabilities, TransactionSource } from '../TransactionSource'
+import type { ResolveOptions, SourceCapabilities, TransactionSource } from '../TransactionSource'
 import { CONSUMERS, EXAMPLES, LINKED_TRANSACTIONS } from './examples'
 
 /**
@@ -30,7 +30,9 @@ export class BundledSource implements TransactionSource {
     return this.byHash.has(hash)
   }
 
-  getTransaction(hash: string): Promise<Transaction> {
+  getTransaction(hash: string, _opts?: ResolveOptions): Promise<Transaction> {
+    // Bundled transactions ship fully resolved, so there is nothing more to
+    // resolve on demand; the options are accepted for interface parity.
     const found = this.byHash.get(hash)
     if (!found) {
       return Promise.reject(

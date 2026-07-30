@@ -13,14 +13,22 @@ export function SummaryBanner({
   transaction,
   capacity,
   summary,
+  resolving,
+  onResolveAll,
+  onCancelResolve,
   onCopyLink,
 }: {
   transaction: Transaction
   capacity: CapacityBreakdown
   summary: DecodeResult
+  /** Progress of an in-flight resolve-all, or null when none is running. */
+  resolving?: { done: number; total: number } | null
+  onResolveAll?: () => void
+  onCancelResolve?: () => void
   onCopyLink: () => void
 }) {
   const now = useNow(30_000)
+  const inputsUnresolved = capacity.inputsTotal === undefined && transaction.inputs.length > 0
   return (
     <section className="vz-enter flex flex-col gap-6 border border-hairline bg-panel px-5 py-5 min-[560px]:px-7 min-[560px]:py-6">
       <div className="flex flex-col gap-3">
@@ -45,10 +53,47 @@ export function SummaryBanner({
         <h1 className="max-w-3xl text-[32px] font-medium leading-tight tracking-tight text-bone">
           {summary.headline}
         </h1>
-        {capacity.inputsTotal === undefined && transaction.inputs.length > 0 && (
-          <p className="max-w-3xl text-[12px] leading-relaxed text-muted">
-            Only some of this transaction's {formatInt(transaction.inputs.length)} inputs could be resolved, so the input total and the fee are not shown.
-          </p>
+        {inputsUnresolved && !resolving && (
+          <div className="flex max-w-3xl flex-col items-start gap-3">
+            <p className="text-[12px] leading-relaxed text-muted">
+              Only some of this transaction's {formatInt(transaction.inputs.length)} inputs could be resolved, so the input total and the fee are not shown.
+            </p>
+            {onResolveAll && (
+              <button
+                type="button"
+                onClick={onResolveAll}
+                className="mono border border-border px-3 py-2 text-[10px] uppercase tracking-[0.12em] text-bone-dim transition-colors hover:border-ember hover:text-ember"
+                title={`Fetch all ${formatInt(transaction.inputs.length)} inputs (up to that many node requests)`}
+              >
+                Resolve all {formatInt(transaction.inputs.length)} inputs and compute the fee
+              </button>
+            )}
+          </div>
+        )}
+        {resolving && (
+          <div className="flex max-w-3xl flex-col gap-2">
+            <span className="text-[12px] leading-relaxed text-muted">Resolving inputs to compute the fee…</span>
+            <div className="flex items-center gap-4">
+              <div className="h-1.5 flex-1 bg-raised" role="progressbar" aria-valuenow={resolving.done} aria-valuemin={0} aria-valuemax={resolving.total}>
+                <div
+                  className="h-full bg-ember transition-[width] duration-200"
+                  style={{ width: resolving.total > 0 ? `${Math.min(100, (resolving.done / resolving.total) * 100)}%` : '0%' }}
+                />
+              </div>
+              <span className="mono whitespace-nowrap text-[11px] text-muted">
+                {formatInt(resolving.done)} / {formatInt(resolving.total)}
+              </span>
+              {onCancelResolve && (
+                <button
+                  type="button"
+                  onClick={onCancelResolve}
+                  className="mono text-[10px] uppercase tracking-[0.12em] text-muted transition-colors hover:text-ember"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </div>
         )}
       </div>
 

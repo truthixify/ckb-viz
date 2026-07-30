@@ -13,12 +13,23 @@ export interface SourceCapabilities {
   forwardLineage: boolean
 }
 
+/** Options for resolving a transaction's inputs on demand (SPEC §9.10). */
+export interface ResolveOptions {
+  /** Resolve every input's previous output, not just the large-tx sample, so
+   *  the input total, fee, and owner-net can be computed. Bounded and cancellable. */
+  resolveAllInputs?: boolean
+  /** Called as inputs resolve, for a progress meter. */
+  onProgress?: (done: number, total: number) => void
+  /** Aborts the resolve mid-run; the caller discards the partial result. */
+  signal?: AbortSignal
+}
+
 export interface TransactionSource {
   readonly network: Network
   readonly capabilities: SourceCapabilities
 
   /** Fetch and normalize a transaction by hash. Throws VizError on failure. */
-  getTransaction(hash: string): Promise<Transaction>
+  getTransaction(hash: string, opts?: ResolveOptions): Promise<Transaction>
 
   /**
    * Forward lineage: the hash of the transaction that consumed `outPoint`, or

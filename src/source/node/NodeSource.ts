@@ -19,7 +19,7 @@ import { parseSimulationError, splitOutPoint, type SimulationResult } from '@/do
 import type { Cell, Network, OutPoint, Transaction } from '@/domain/types'
 import { deploymentFor } from '@/registry/codeHashes'
 import { ScriptRegistry } from '@/registry/registry'
-import type { SourceCapabilities, TransactionSource } from '../TransactionSource'
+import type { ResolveOptions, SourceCapabilities, TransactionSource } from '../TransactionSource'
 import {
   cellFromCcc,
   normalizeRawTransaction,
@@ -30,6 +30,9 @@ import {
 
 /** Bound the input-resolution fan-out so a large tx can't hammer the endpoint. */
 const RESOLVE_CONCURRENCY = 8
+/** A higher fan-out for the user-initiated resolve-all, to finish a large tx in
+ *  a reasonable time; still bounded so a public endpoint is not overwhelmed. */
+const RESOLVE_ALL_CONCURRENCY = 20
 /** Resolve every input's previous output up to this many. Beyond it (a large
  *  consolidation can have thousands of inputs), resolving each one is thousands
  *  of RPC calls that never finish, so we resolve only a small sample for the
@@ -38,6 +41,9 @@ const FULL_RESOLVE_MAX = 200
 /** For a transaction past FULL_RESOLVE_MAX, resolve just enough inputs to show
  *  the first few cards; the rest render as an unresolved group. */
 const SAMPLE_RESOLVE = 6
+/** Absolute ceiling on an on-demand resolve-all, so a pathological input count
+ *  still can't wedge the tool. Beyond it, resolve up to the cap and report so. */
+const RESOLVE_ALL_MAX = 20_000
 /** How far back to look for the consuming tx among a lock's spending txs. */
 const FORWARD_SCAN_LIMIT = 40
 /** How many blocks down from the tip to scan for the latest transaction. */
@@ -70,7 +76,7 @@ export class NodeSource implements TransactionSource {
         : new ClientPublicTestnet({ url: rpcUrl })
   }
 
-  async getTransaction(hash: string): Promise<Transaction> {
+  async getTransaction(hash: string, opts?: ResolveOptions): Promise<Transaction> {
     let resp
     try {
       resp = await this.client.getTransaction(hash)
@@ -86,7 +92,9 @@ export class NodeSource implements TransactionSource {
     }
 
     const tx = resp.transaction
-    const inputCells = await this.resolveInputs(tx)
+    const inputCells = opts?.resolveAllInputs
+      ? await this.resolveAllInputs(tx, opts)
+      : await this.resolveInputs(tx)
 
     let header
     if (resp.blockNumber != null) {
@@ -342,6 +350,82 @@ export class NodeSource implements TransactionSource {
     const workers = Array.from({ length: Math.min(RESOLVE_CONCURRENCY, limit) }, worker)
     await Promise.all(workers)
     return results
+  }
+
+  /**
+   * Resolve every input on demand (SPEC §9.10), for a large transaction the
+   * default view only sampled. A cell's output and data are fixed at creation,
+   * so we read them from each input's creating transaction — and inputs that
+   * share a creating transaction are fetched once (a payout often references far
+   * fewer distinct source txs than it has inputs). Reports progress and honors
+   * an AbortSignal, throwing so the caller discards a partial (and misleading)
+   * result rather than showing a wrong fee.
+   */
+  private async resolveAllInputs(tx: CccTransaction, opts: ResolveOptions): Promise<(Cell | undefined)[]> {
+    const total = Math.min(tx.inputs.length, RESOLVE_ALL_MAX)
+    const results: (Cell | undefined)[] = new Array(tx.inputs.length)
+    const prefix = this.client.addressPrefix
+
+    const byTx = new Map<string, { inputIndex: number; outIndex: number }[]>()
+    for (let i = 0; i < total; i++) {
+      const input = tx.inputs[i]
+      if (!input) continue
+      const txHash = input.previousOutput.txHash
+      const list = byTx.get(txHash) ?? []
+      list.push({ inputIndex: i, outIndex: Number(input.previousOutput.index) })
+      byTx.set(txHash, list)
+    }
+
+    const entries = [...byTx.entries()]
+    let done = 0
+    let cursor = 0
+    const worker = async () => {
+      while (cursor < entries.length) {
+        if (opts.signal?.aborted) throw new DOMException('Resolve cancelled', 'AbortError')
+        const [txHash, needs] = entries[cursor++]!
+        try {
+          const prev = await this.getTransactionWithBackoff(txHash, opts.signal)
+          if (prev) {
+            for (const { inputIndex, outIndex } of needs) {
+              const output = prev.transaction.outputs[outIndex]
+              if (output) {
+                results[inputIndex] = cellFromCcc(
+                  output,
+                  prev.transaction.outputsData[outIndex] ?? '0x',
+                  { txHash, index: outIndex },
+                  prefix,
+                )
+              }
+            }
+          }
+        } catch (error) {
+          if (error instanceof DOMException) throw error
+          // leave these inputs unresolved; the fee stays unknown if any are
+        }
+        done += needs.length
+        opts.onProgress?.(Math.min(done, total), total)
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(RESOLVE_ALL_CONCURRENCY, entries.length) }, worker))
+    return results
+  }
+
+  /** Fetch a transaction, retrying a few times with backoff so a public endpoint
+   *  rate-limiting a large fan-out does not leave inputs spuriously unresolved. */
+  private async getTransactionWithBackoff(
+    hash: string,
+    signal: AbortSignal | undefined,
+  ): Promise<Awaited<ReturnType<Client['getTransaction']>> | undefined> {
+    const delays = [150, 400, 900]
+    for (let attempt = 0; ; attempt++) {
+      if (signal?.aborted) throw new DOMException('Resolve cancelled', 'AbortError')
+      try {
+        return await this.client.getTransaction(hash)
+      } catch {
+        if (attempt >= delays.length) return undefined
+        await new Promise((resolve) => setTimeout(resolve, delays[attempt]))
+      }
+    }
   }
 
   private resolveOne(outPoint: CccOutPoint): Promise<Cell | undefined> {

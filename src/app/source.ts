@@ -1,7 +1,7 @@
 import type { AddressView } from '@/domain/address'
 import type { SimulationResult } from '@/domain/simulation'
 import type { Network, OutPoint, Transaction } from '@/domain/types'
-import type { SourceCapabilities, TransactionSource } from '@/source/TransactionSource'
+import type { ResolveOptions, SourceCapabilities, TransactionSource } from '@/source/TransactionSource'
 import { BundledSource } from '@/source/bundled/BundledSource'
 import { getRpcUrl } from './config'
 
@@ -33,9 +33,9 @@ class CompositeSource implements TransactionSource {
     return this.nodePromise
   }
 
-  async getTransaction(hash: string): Promise<Transaction> {
-    if (this.bundled.has(hash)) return this.bundled.getTransaction(hash)
-    return (await this.getNode()).getTransaction(hash)
+  async getTransaction(hash: string, opts?: ResolveOptions): Promise<Transaction> {
+    if (this.bundled.has(hash)) return this.bundled.getTransaction(hash, opts)
+    return (await this.getNode()).getTransaction(hash, opts)
   }
 
   async findConsumingTx(outPoint: OutPoint): Promise<string | null> {
