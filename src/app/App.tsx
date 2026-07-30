@@ -16,6 +16,7 @@ import { TransactionFlow } from '@/components/flow/TransactionFlow'
 import { RawJsonView } from '@/components/flow/RawJsonView'
 import { TransactionExtras } from '@/components/flow/TransactionExtras'
 import { Breadcrumb } from '@/components/lineage/Breadcrumb'
+import { LineageGraph } from '@/components/lineage/LineageGraph'
 import { Header } from '@/components/shell/Header'
 import { SummaryBanner } from '@/components/shell/SummaryBanner'
 import { NavBar } from '@/components/shell/NavBar'
@@ -374,6 +375,12 @@ export function App() {
                 onToast={setToast}
               />
               <TransactionExtras transaction={enriched.transaction} onCopy={onCopy} />
+              <LineageGraph
+                source={source}
+                focusHash={currentHash}
+                transaction={enriched.transaction}
+                onOpenTx={loadHash}
+              />
               <RawJsonView transaction={enriched.transaction} onCopy={onCopy} />
             </>
           ) : null}
