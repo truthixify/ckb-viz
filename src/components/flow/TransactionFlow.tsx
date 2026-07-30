@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { CapacityBreakdown, Cell, Transaction } from '@/domain/types'
 import { clsx } from '@/app/clsx'
+import { ExportMenu } from './ExportMenu'
 import { FlowCanvas } from './FlowCanvas'
 import { OwnerNetView } from './OwnerNetView'
 
@@ -18,12 +19,14 @@ export function TransactionFlow({
   selectedId,
   onSelectCell,
   onCopy,
+  onToast,
 }: {
   transaction: Transaction
   capacity: CapacityBreakdown
   selectedId: string | null
   onSelectCell: (cell: Cell, id: string) => void
   onCopy: (text: string) => void
+  onToast: (message: string) => void
 }) {
   const [mode, setMode] = useState<FlowMode>('flow')
 
@@ -34,6 +37,7 @@ export function TransactionFlow({
           <ModeTab label="Cell flow" active={mode === 'flow'} onClick={() => setMode('flow')} />
           <ModeTab label="Owner net" active={mode === 'owners'} onClick={() => setMode('owners')} />
         </div>
+        <ExportMenu transaction={transaction} capacity={capacity} onDone={onToast} />
       </div>
 
       {mode === 'flow' ? (

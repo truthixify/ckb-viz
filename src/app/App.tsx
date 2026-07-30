@@ -371,6 +371,7 @@ export function App() {
                 selectedId={selectedId}
                 onSelectCell={onSelectCell}
                 onCopy={onCopy}
+                onToast={setToast}
               />
               <TransactionExtras transaction={enriched.transaction} onCopy={onCopy} />
               <RawJsonView transaction={enriched.transaction} onCopy={onCopy} />
